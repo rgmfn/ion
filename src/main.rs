@@ -38,23 +38,37 @@ impl Table {
     }
 
     fn draw_headers(&self) {
+        let num_col_size: usize = (self.data.len() as f32).log10() as usize + 1;
         {
             label("+", 4, 4, TEXT_PAIR);
+            addstr(&n_of_c(num_col_size + 2, '-'));
+            addstr("+");
 
             for col in self.schema.iter() {
                 addstr(&format!("{}+", n_of_c((col.width + 2) as usize, '-')));
             }
         }
         {
-            let mut x_pos = 0;
+            label(
+                &format!("| {} ", n_of_c(num_col_size, ' ')),
+                5,
+                4,
+                TEXT_PAIR,
+            );
+
             for col in self.schema.iter() {
-                label(&format!("| {}", col.name), 5, 4 + x_pos, TEXT_PAIR);
-                x_pos += 2 + col.width + 1;
+                addstr(&format!(
+                    "| {} ",
+                    fit_to_sizel(&col.name, col.width as usize, ' ')
+                ));
             }
-            label("|", 5, 4 + x_pos, TEXT_PAIR);
+            addstr("|");
         }
         {
+            // TODO is duplicate of 1st block
             label("+", 6, 4, TEXT_PAIR);
+            addstr(&n_of_c(num_col_size + 2, '='));
+            addstr("+");
 
             for col in self.schema.iter() {
                 addstr(&format!("{}+", n_of_c((col.width + 2) as usize, '=')));
@@ -64,6 +78,7 @@ impl Table {
 
     fn draw_data(&self) {
         let start_y: i32 = 7;
+        let num_col_size: usize = (self.data.len() as f32).log10() as usize + 1;
         for (row_num, row) in self.data.iter().enumerate() {
             // freak out if row longer than schema
 
@@ -74,8 +89,12 @@ impl Table {
             };
             mv(row_num as i32 + start_y, 4);
             attron(COLOR_PAIR(pair));
+            {
+                addstr("| ");
+                addstr(&fit_to_sizer(&format!("{} ", row_num), num_col_size, ' '));
+            }
             for (col_num, item) in row.iter().enumerate() {
-                addstr(&fit_to_size(
+                addstr(&fit_to_sizel(
                     &format!("| {} ", item),
                     self.schema[col_num].width as usize + 3,
                     ' ',
@@ -89,6 +108,9 @@ impl Table {
     fn draw_footer(&self) {
         {
             label("+", 7 + self.data.len() as i32, 4, TEXT_PAIR);
+            let num_col_size: usize = (self.data.len() as f32).log10() as usize + 1;
+            addstr(&n_of_c(num_col_size + 2, '-'));
+            addstr("+");
 
             for col in self.schema.iter() {
                 addstr(&format!("{}+", n_of_c((col.width + 2) as usize, '-')));
@@ -127,11 +149,23 @@ fn n_of_c(n: usize, c: char) -> String {
     std::iter::repeat(c).take(n).collect::<String>()
 }
 
-fn fit_to_size(text: &str, n: usize, pad: char) -> String {
+fn fit_to_sizel(text: &str, n: usize, pad: char) -> String {
     if n > text.len() {
         let mut ret = "".to_string();
         ret.push_str(text);
         ret.push_str(&n_of_c(n - text.len(), pad));
+
+        ret
+    } else {
+        text.to_string()
+    }
+}
+
+fn fit_to_sizer(text: &str, n: usize, pad: char) -> String {
+    if n > text.len() {
+        let mut ret = "".to_string();
+        ret.push_str(&n_of_c(n - text.len(), pad));
+        ret.push_str(text);
 
         ret
     } else {
