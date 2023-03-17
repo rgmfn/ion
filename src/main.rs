@@ -22,6 +22,7 @@ struct Table {
     schema: Vec<Column>,
     data: Vec<Vec<String>>,
     curr: i32,
+    num_mode: NumMode,
 }
 
 impl Table {
@@ -79,6 +80,7 @@ impl Table {
     fn draw_data(&self) {
         let start_y: i32 = 7;
         let num_col_size: usize = (self.data.len() as f32).log10() as usize + 1;
+        label(&format!("{}", num_col_size), 20, 100, TEXT_PAIR);
         for (row_num, row) in self.data.iter().enumerate() {
             // freak out if row longer than schema
 
@@ -91,7 +93,17 @@ impl Table {
             attron(COLOR_PAIR(pair));
             {
                 addstr("| ");
-                addstr(&fit_to_sizer(&format!("{} ", row_num), num_col_size, ' '));
+                addstr(&fit_to_sizer(
+                    &format!(
+                        "{} ",
+                        match self.num_mode {
+                            NumMode::ABSOLUTE => row_num,
+                            NumMode::RELATIVE => (row_num as i32 - self.curr).abs() as usize,
+                        }
+                    ),
+                    num_col_size + 1,
+                    ' ',
+                ));
             }
             for (col_num, item) in row.iter().enumerate() {
                 addstr(&fit_to_sizel(
@@ -132,15 +144,26 @@ impl Table {
         }
     }
 
-    fn up(&mut self) {
-        if self.curr > 0 {
-            self.curr -= 1;
+    fn up(&mut self, by: i32) {
+        if self.curr - by >= 0 {
+            self.curr -= by;
+        } else {
+            self.curr = 0;
         }
     }
 
-    fn down(&mut self) {
-        if self.curr + 1 < self.data.len() as i32 {
-            self.curr += 1;
+    fn down(&mut self, by: i32) {
+        if self.curr + by < self.data.len() as i32 {
+            self.curr += by;
+        } else {
+            self.curr = self.data.len() as i32 - 1;
+        }
+    }
+
+    fn switch_num_mode(&mut self) {
+        match self.num_mode {
+            NumMode::ABSOLUTE => self.num_mode = NumMode::RELATIVE,
+            NumMode::RELATIVE => self.num_mode = NumMode::ABSOLUTE,
         }
     }
 }
@@ -173,6 +196,11 @@ fn fit_to_sizer(text: &str, n: usize, pad: char) -> String {
     }
 }
 
+enum NumMode {
+    ABSOLUTE,
+    RELATIVE,
+}
+
 fn main() {
     initscr();
     noecho();
@@ -196,6 +224,18 @@ fn main() {
         vec!["MUSC 80M".to_string(), "Discussion 1".to_string()],
         vec!["CSE 112".to_string(), "Assignment 3".to_string()],
         vec!["CSE 120".to_string(), "Midterm 2".to_string()],
+        vec!["MUSC 80M".to_string(), "Discussion 1".to_string()],
+        vec!["CSE 112".to_string(), "Assignment 3".to_string()],
+        vec!["CSE 120".to_string(), "Midterm 2".to_string()],
+        vec!["MUSC 80M".to_string(), "Discussion 1".to_string()],
+        vec!["CSE 112".to_string(), "Assignment 3".to_string()],
+        vec!["CSE 120".to_string(), "Midterm 2".to_string()],
+        vec!["MUSC 80M".to_string(), "Discussion 1".to_string()],
+        vec!["CSE 112".to_string(), "Assignment 3".to_string()],
+        vec!["CSE 120".to_string(), "Midterm 2".to_string()],
+        vec!["MUSC 80M".to_string(), "Discussion 1".to_string()],
+        vec!["CSE 112".to_string(), "Assignment 3".to_string()],
+        vec!["CSE 120".to_string(), "Midterm 2".to_string()],
     ];
 
     let mut table: Table = Table {
@@ -204,6 +244,7 @@ fn main() {
         schema,
         data,
         curr: 0,
+        num_mode: NumMode::ABSOLUTE,
     };
 
     let mut quit = false;
@@ -221,13 +262,15 @@ fn main() {
         match key as u8 as char {
             'q' => quit = true,
             'w' => todo!(),
-            'j' => table.down(),
-            'k' => table.up(),
+            'j' => table.down(1),
+            'k' => table.up(1),
+            'J' => table.down(10),
+            'K' => table.up(10),
             'h' => todo!(),
             'l' => todo!(),
             'v' => todo!(),
             'V' => todo!(),
-            'n' => todo!(),
+            'n' => table.switch_num_mode(),
             'i' => todo!(),
             's' => todo!(),
             'f' => todo!(),

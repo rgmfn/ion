@@ -2,6 +2,8 @@ q  quit
 w  write file (if not auto)
 j  down
 k  up
+_  down by _
+_  up by _
 h  scroll view left
 l  scroll view right
 v  view
