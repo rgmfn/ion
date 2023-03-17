@@ -8,7 +8,7 @@ Spring 2021 Schedule
     |  0 | CSE 112  | Assignment 3 | 05/17/21 | Started     | Assignment |                     |            |
     |  1 | CSE 120  | Midterm 2    | 05/20/21 | Not Started | Exam       | Tentative date.     |            |
     |  2 | MUSC 80M | Discussion 1 | 04/04/21 | Completed   | Discussion |                     |            |
-    |  3 |          |              |          |             |            |                     |            |
+    |  3 | CSE 115  | Scrum meet.. | 03/17/23 | Not Started | Meeting    | At 3pm.             |            |
     |  4 |          |              |          |             |            |                     |            |
     |  5 |          |              |          |             |            |                     |            |
     |  6 |          |              |          |             |            |                     |            |
