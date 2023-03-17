@@ -1,0 +1,20 @@
+Spring 2021 Schedule
+
+    Spring 2021 Schedule Subtitle
+    View: All . CSE 112 . CSE 120 . MUSC 80M . Assignments . Exams . Mandarins
+    +----------+--------------+----------+-------------+------------+---------------------+------------+
+    | Course   | Name         | Date     | Status      | Type       | Notes               | TestColu.. |
+    +==========+==============+==========+=============+============+=====================+============+
+    | CSE 112  | Assignment 3 | 05/17/21 | Started     | Assignment |                     |            |
+    | CSE 120  | Midterm 2    | 05/20/21 | Not Started | Exam       | Tentative date.     |            |
+    | MUSC 80M | Discussion 1 | 04/04/21 | Completed   | Discussion |                     |            |
+    |          |              |          |             |            |                     |            |
+    |          |              |          |             |            |                     |            |
+    |          |              |          |             |            |                     |            |
+    |          |              |          |             |            |                     |            |
+    |          |              |          |             |            |                     |            |
+    |          |              |          |             |            |                     |            |
+    |          |              |          |             |            |                     |            |
+    |          |              |          |             |            |                     |            |
+    +----------+--------------+----------+-------------+------------+---------------------+------------+
+     3 entries
