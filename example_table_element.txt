@@ -2,7 +2,7 @@ Spring 2021 Schedule
     Spring 2021 Schedule Subtitle
 
     [0|Course]
-      CSE 112
+      CSE 112 -> New class name
 
     [1|Name]
       Assignment 3

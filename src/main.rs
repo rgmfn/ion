@@ -15,6 +15,13 @@ const INV_MAGENTA_PAIR: i16 = 11;
 const CYAN_PAIR: i16 = 12;
 const INV_CYAN_PAIR: i16 = 13;
 
+#[derive(Clone, Copy)]
+enum InputMode {
+    Normal,
+    Text,
+    // CMD,
+}
+
 struct Column {
     name: String,
     width: i32,
@@ -55,7 +62,10 @@ impl Table {
     }
 
     fn draw_views(&self) {
-        label("View: All", 3, 4, WHITE_PAIR);
+        label("View: ", 3, 4, WHITE_PAIR);
+        attron(COLOR_PAIR(INV_WHITE_PAIR));
+        addstr("All");
+        attroff(COLOR_PAIR(INV_WHITE_PAIR));
     }
 
     fn draw_headers(&self) {
@@ -164,11 +174,11 @@ impl Table {
         }
     }
 
-    fn draw_curr(&self) {
+    fn draw_curr_elem(&self, motion_num: usize, input_mode: InputMode, input_str: &str) {
         let start_y: usize = 4;
         for (col_num, item) in self.data[self.curr].iter().enumerate() {
             label(
-                &format!("[{}|{}]", col_num, self.schema[col_num].name),
+                &format!("[{}|{}]", col_num + 1, self.schema[col_num].name),
                 (start_y + col_num * 3) as i32,
                 4,
                 WHITE_PAIR,
@@ -179,20 +189,30 @@ impl Table {
                 6,
                 WHITE_PAIR,
             );
+            match input_mode {
+                InputMode::Text => {
+                    if motion_num == col_num + 1 {
+                        addstr(&format!(" -> {}", input_str));
+                    }
+                }
+                _ => {}
+            }
         }
     }
 
-    fn up(&mut self, by: i32) {
-        if self.curr as i32 - by >= 0 {
-            self.curr -= by as usize;
+    fn up(&mut self, by: i32, def: i32) {
+        let n: i32 = if by == 0 { def } else { by };
+        if self.curr as i32 - n >= 0 {
+            self.curr -= n as usize;
         } else {
             self.curr = 0;
         }
     }
 
-    fn down(&mut self, by: usize) {
-        if self.curr + by < self.data.len() {
-            self.curr += by;
+    fn down(&mut self, by: usize, def: usize) {
+        let n: usize = if by == 0 { def } else { by };
+        if self.curr + n < self.data.len() {
+            self.curr += n;
         } else {
             self.curr = self.data.len() - 1;
         }
@@ -323,6 +343,14 @@ fn main() {
     };
     let mut table_focus: TableFocus = TableFocus::Table;
 
+    let mut input_mode: InputMode = InputMode::Normal;
+    let mut input_str: String = "".to_string();
+    let mut motion_num: usize = 0;
+
+    let mut screen_w = 0;
+    let mut screen_h = 0;
+    getmaxyx(stdscr(), &mut screen_h, &mut screen_w);
+
     let mut quit = false;
     while !quit {
         erase();
@@ -337,57 +365,121 @@ fn main() {
                 table.draw_headers();
                 table.draw_footer();
             }
-            TableFocus::Element => table.draw_curr(),
+            TableFocus::Element => {
+                table.draw_curr_elem(motion_num as usize, input_mode, &input_str)
+            }
             _ => todo!(),
         };
 
+        if motion_num != 0 {
+            mv(screen_h - 1, 0);
+            addstr(&format!("{}", motion_num));
+            // label(&format!("{}", motion_num), screen_h, 4, WHITE_PAIR);
+        }
+
         let key = getch();
-        match key as u8 as char {
-            'q' => quit = true,
-            'w' => todo!(),
-            'j' => match table_focus {
-                TableFocus::Table => table.down(1),
-                _ => {}
+        match input_mode {
+            InputMode::Text => match key as u8 as char {
+                '\n' | '\r' => match table_focus {
+                    TableFocus::Element => {
+                        table.data[table.curr].push(input_str);
+                        table.data[table.curr].swap_remove(motion_num - 1);
+                        input_str = "".to_string();
+                        motion_num = 0;
+                        input_mode = InputMode::Normal;
+                    }
+                    _ => {}
+                }, // enter
+                '\x1b' => quit = true,                  // escape
+                '\x08' | '\x7f' => _ = input_str.pop(), // backspace
+                _ => input_str.push_str(&(key as u8 as char).to_string()),
             },
-            'k' => match table_focus {
-                TableFocus::Table => table.up(1),
-                _ => {}
+            InputMode::Normal => match key as u8 as char {
+                'q' => quit = true,
+                'w' => todo!(),
+                'j' => match table_focus {
+                    TableFocus::Table => {
+                        table.down(motion_num, 1);
+                        motion_num = 0;
+                    }
+                    _ => {}
+                },
+                'k' => match table_focus {
+                    TableFocus::Table => {
+                        table.up(motion_num as i32, 1);
+                        motion_num = 0;
+                    }
+                    _ => {}
+                },
+                'J' => match table_focus {
+                    TableFocus::Table => {
+                        table.down(motion_num, 10);
+                        motion_num = 0;
+                    }
+                    _ => {}
+                },
+                'K' => match table_focus {
+                    TableFocus::Table => {
+                        table.up(motion_num as i32, 10);
+                        motion_num = 0;
+                    }
+                    _ => {}
+                },
+                'h' => {}
+                'l' => {}
+                'v' => match table_focus {
+                    TableFocus::Table => {
+                        table_focus = TableFocus::View;
+                        motion_num = 0;
+                    }
+                    _ => {}
+                },
+                'c' => match table_focus {
+                    TableFocus::Table => {
+                        table_focus = TableFocus::Column;
+                        motion_num = 0;
+                    }
+                    _ => {}
+                },
+                's' => match table_focus {
+                    TableFocus::Table => {
+                        table_focus = TableFocus::Sort;
+                        motion_num = 0;
+                    }
+                    _ => {}
+                },
+                'V' => {}
+                'n' => table.switch_num_mode(),
+                // 'i' => {
+                //     // TODO temp?
+                //     input_mode = InputMode::TEXT;
+                //     motion_num = 0;
+                // }
+                'f' => {}
+                'u' => {}
+                '\n' => match table_focus {
+                    TableFocus::Table => {
+                        table_focus = TableFocus::Element;
+                        motion_num = 0;
+                    }
+                    TableFocus::Element => {
+                        if motion_num > 0 {
+                            input_mode = InputMode::Text;
+                        }
+                    }
+                    _ => {}
+                },
+                '\x1b' => table_focus = TableFocus::Table,
+                ':' => {}
+                '=' => {}
+                '?' => {}
+                '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0' => {
+                    motion_num = motion_num * 10 + (key as usize - 48);
+                }
+                _ => {
+                    println!("{}", key)
+                }
             },
-            'J' => match table_focus {
-                TableFocus::Table => table.down(6),
-                _ => {}
-            },
-            'K' => match table_focus {
-                TableFocus::Table => table.up(6),
-                _ => {}
-            },
-            'h' => {}
-            'l' => {}
-            'v' => match table_focus {
-                TableFocus::Table => table_focus = TableFocus::View,
-                _ => {}
-            },
-            'c' => match table_focus {
-                TableFocus::Table => table_focus = TableFocus::Column,
-                _ => {}
-            },
-            's' => match table_focus {
-                TableFocus::Table => table_focus = TableFocus::Sort,
-                _ => {}
-            },
-            'V' => {}
-            'n' => table.switch_num_mode(),
-            'i' => {}
-            'f' => {}
-            'u' => {}
-            '\n' => match table_focus {
-                TableFocus::Table => table_focus = TableFocus::Element,
-                _ => table_focus = TableFocus::Table,
-            },
-            ':' => {}
-            '=' => {}
-            '?' => {}
-            _ => {}
         }
     }
 
