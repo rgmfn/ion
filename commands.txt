@@ -1,21 +1,22 @@
-q  quit
-w  write file (if not auto)
-j  down
-k  up
-_  down by _
-_  up by _
-h  scroll view left
-l  scroll view right
-v  view
-V  multi select
-n  switch between rel and abs nums
-i  insert
- 	 - brings up (example_table_element.txt)
- 	 - enter goes to next elem
-s  sorting
-f  filtering
-u  undo
-\n opens current row as (example_table_element.txt)
-:  command mode? (not sure if needed)
-=  auto resize column(s)
-?  commands menu (like helix ?)
+q   quit
+w   write file (if not auto)
+j   down
+k   up
+_   down by _
+_   up by _
+h   scroll view left
+l   scroll view right
+v   views
+c   columns
+V   multi select
+n   switch between rel and abs nums
+i   insert
+      - brings up (example_table_element.txt)
+      - enter goes to next elem
+s   sorting
+f   filtering
+u   undo
+\n  opens current row as (example_table_element.txt)
+:   command mode? (not sure if needed)
+=   auto resize column(s)?
+?   commands menu (like helix ?)
