@@ -1,4 +1,6 @@
 use ncurses::*;
+use std::fs::File;
+use std::io::Write;
 
 const WHITE_PAIR: i16 = 0;
 const INV_WHITE_PAIR: i16 = 1;
@@ -262,6 +264,14 @@ enum NumMode {
     RELATIVE,
 }
 
+fn save_table(table: &Table) {
+    let file_path = "classes.json";
+    let mut file = File::create(file_path).unwrap();
+    writeln!(file, "{}", stringify!(table.data));
+}
+
+fn load_table() {}
+
 fn main() {
     initscr();
     noecho();
@@ -487,6 +497,16 @@ fn main() {
                     }
                     _ => {}
                 },
+                'd' => match table_focus {
+                    TableFocus::Table | TableFocus::Element => {
+                        _ = table.data.remove(table.curr);
+                        if table.curr + 1 > table.data.len() {
+                            table.curr = table.data.len() - 1;
+                        }
+                        table_focus = TableFocus::Table;
+                    }
+                    _ => {}
+                },
                 'f' => {}
                 'u' => {}
                 '\n' => match table_focus {
@@ -517,6 +537,7 @@ fn main() {
             },
         }
     }
+    // save_table(&table);
 
     endwin();
 }
