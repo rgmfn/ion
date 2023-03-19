@@ -25,6 +25,8 @@ enum InputMode {
 struct Column {
     name: String,
     width: i32,
+    // type: X,
+    // default: value,
 }
 
 fn label(text: &str, y: i32, x: i32, pair: i16) {
@@ -37,6 +39,7 @@ fn label(text: &str, y: i32, x: i32, pair: i16) {
 enum TableFocus {
     Table,
     Element,
+    NewElement,
     View,
     Sort,
     Column,
@@ -174,9 +177,9 @@ impl Table {
         }
     }
 
-    fn draw_curr_elem(&self, motion_num: usize, input_mode: InputMode, input_str: &str) {
+    fn draw_elem(&self, row_num: usize, motion_num: usize, input_mode: InputMode, input_str: &str) {
         let start_y: usize = 4;
-        for (col_num, item) in self.data[self.curr].iter().enumerate() {
+        for (col_num, item) in self.data[row_num].iter().enumerate() {
             label(
                 &format!("[{}|{}]", col_num + 1, self.schema[col_num].name),
                 (start_y + col_num * 3) as i32,
@@ -366,8 +369,14 @@ fn main() {
                 table.draw_footer();
             }
             TableFocus::Element => {
-                table.draw_curr_elem(motion_num as usize, input_mode, &input_str)
+                table.draw_elem(table.curr, motion_num as usize, input_mode, &input_str)
             }
+            TableFocus::NewElement => table.draw_elem(
+                table.data.len() - 1,
+                motion_num,
+                InputMode::Text,
+                &input_str,
+            ),
             _ => todo!(),
         };
 
@@ -387,6 +396,24 @@ fn main() {
                         input_str = "".to_string();
                         motion_num = 0;
                         input_mode = InputMode::Normal;
+                    }
+                    TableFocus::NewElement => {
+                        if motion_num < table.schema.len() {
+                            let table_len = table.data.len();
+                            table.data[table_len - 1].push(input_str);
+                            table.data[table_len - 1].swap_remove(motion_num - 1);
+                            input_str = "".to_string();
+                            motion_num += 1;
+                        } else {
+                            let table_len = table.data.len();
+                            table.data[table_len - 1].push(input_str);
+                            table.data[table_len - 1].swap_remove(motion_num - 1);
+                            table.curr = table_len - 1;
+                            table_focus = TableFocus::Table;
+                            input_mode = InputMode::Normal;
+                            motion_num = 0;
+                            input_str = "".to_string();
+                        }
                     }
                     _ => {}
                 }, // enter
@@ -450,11 +477,16 @@ fn main() {
                 },
                 'V' => {}
                 'n' => table.switch_num_mode(),
-                // 'i' => {
-                //     // TODO temp?
-                //     input_mode = InputMode::TEXT;
-                //     motion_num = 0;
-                // }
+                'i' => match table_focus {
+                    TableFocus::Table => {
+                        table.data.push(vec!["".to_string(); table.schema.len()]);
+                        table_focus = TableFocus::NewElement;
+                        motion_num = 1;
+                        input_mode = InputMode::Text;
+                        // todo!(); // insert new row into table.data
+                    }
+                    _ => {}
+                },
                 'f' => {}
                 'u' => {}
                 '\n' => match table_focus {
@@ -466,6 +498,9 @@ fn main() {
                         if motion_num > 0 {
                             input_mode = InputMode::Text;
                         }
+                    }
+                    TableFocus::NewElement => {
+                        todo!() // place in new string
                     }
                     _ => {}
                 },
