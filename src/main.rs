@@ -1,4 +1,5 @@
 use ncurses::*;
+use std::cmp::{max, min};
 
 const WHITE_PAIR: i16 = 0;
 const INV_WHITE_PAIR: i16 = 1;
@@ -324,7 +325,7 @@ fn fit_to_sizel(text: &str, n: usize, pad: char) -> String {
 
         ret
     } else {
-        text.to_string()
+        format!("{}..", &text[..(n - 2)])
     }
 }
 
@@ -502,14 +503,20 @@ fn main() {
                     }
                     TableFocus::Column => match motion_num {
                         1 => {
-                            table.columns[table.curr_col].width = input_str.parse::<i32>().unwrap();
+                            table.columns[table.curr_col].width = max(
+                                input_str.parse::<i32>().unwrap(),
+                                table.columns[table.curr_col].name.len() as i32,
+                            );
                             // TODO input validation
                             input_str = "".to_string();
                             motion_num = 0;
                             input_mode = InputMode::Normal;
                         }
                         2 => {
+                            let new_str_len = input_str.len() as i32;
                             table.columns[table.curr_col].name = input_str;
+                            table.columns[table.curr_col].width =
+                                max(table.columns[table.curr_col].width, new_str_len);
                             input_str = "".to_string();
                             motion_num = 0;
                             input_mode = InputMode::Normal;
@@ -528,31 +535,34 @@ fn main() {
                 _ => input_str.push_str(&(key as u8 as char).to_string()),
             },
             InputMode::Normal => match key as u8 as char {
-                'q' => quit = true,
+                'q' | '\x1b' => match table.table_focus {
+                    TableFocus::Table => quit = true,
+                    _ => table.to_table(),
+                },
                 'w' => todo!(),
                 'j' => match table.table_focus {
-                    TableFocus::Table => {
+                    TableFocus::Table | TableFocus::Element => {
                         table.down(motion_num, 1);
                         motion_num = 0;
                     }
                     _ => {}
                 },
                 'k' => match table.table_focus {
-                    TableFocus::Table => {
+                    TableFocus::Table | TableFocus::Element => {
                         table.up(motion_num as i32, 1);
                         motion_num = 0;
                     }
                     _ => {}
                 },
                 'J' => match table.table_focus {
-                    TableFocus::Table => {
+                    TableFocus::Table | TableFocus::Element => {
                         table.down(motion_num, 10);
                         motion_num = 0;
                     }
                     _ => {}
                 },
                 'K' => match table.table_focus {
-                    TableFocus::Table => {
+                    TableFocus::Table | TableFocus::Element => {
                         table.up(motion_num as i32, 10);
                         motion_num = 0;
                     }
@@ -630,13 +640,13 @@ fn main() {
                     }
                     _ => {}
                 },
-                '\x1b' => table.to_table(),
                 ':' => {}
                 '=' => {}
                 '?' => {}
                 '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0' => {
                     motion_num = motion_num * 10 + (key as usize - 48);
                 }
+                '\x08' | '\x7f' => motion_num /= 10, // backspace
                 _ => {
                     println!("{}", key)
                 }
