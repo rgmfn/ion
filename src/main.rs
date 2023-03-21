@@ -383,10 +383,10 @@ fn main() {
             name: "Status".to_string(),
             width: 20,
         },
-        Column {
-            name: "Type".to_string(),
-            width: 20,
-        },
+        // Column {
+        //     name: "Type".to_string(),
+        //     width: 20,
+        // },
     ];
     let data: Vec<Vec<String>> = vec![
         vec![
@@ -394,28 +394,28 @@ fn main() {
             "Essay".to_string(),
             "03/17/23".to_string(),
             "Not Started".to_string(),
-            "Paper".to_string(),
+            // "Paper".to_string(),
         ],
         vec![
             "CSE 180".to_string(),
             "Final".to_string(),
             "03/23/23".to_string(),
             "Not Started".to_string(),
-            "Exam".to_string(),
+            // "Exam".to_string(),
         ],
         vec![
             "CSE 115A".to_string(),
             "TSR 4".to_string(),
             "02/14/23".to_string(),
             "Completed".to_string(),
-            "Assignment".to_string(),
+            // "Assignment".to_string(),
         ],
         vec![
             "CSE 180".to_string(),
             "Gradiance 1".to_string(),
             "01/26/23".to_string(),
             "Completed".to_string(),
-            "Assingment".to_string(),
+            // "Assingment".to_string(),
         ],
     ];
 
@@ -502,8 +502,8 @@ fn main() {
                     }
                     TableFocus::Column => match motion_num {
                         1 => {
-                            // table.columns[table.curr_col].width = input_str; // type conversion?
-                            table.columns[table.curr_col].width = 14; // type conversion?
+                            table.columns[table.curr_col].width = input_str.parse::<i32>().unwrap();
+                            // TODO input validation
                             input_str = "".to_string();
                             motion_num = 0;
                             input_mode = InputMode::Normal;
