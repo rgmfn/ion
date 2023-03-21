@@ -1,6 +1,4 @@
 use ncurses::*;
-use std::fs::File;
-use std::io::Write;
 
 const WHITE_PAIR: i16 = 0;
 const INV_WHITE_PAIR: i16 = 1;
@@ -51,10 +49,12 @@ struct Table {
     title: String,
     subtitle: String,
     // views: Vec<View>,
-    schema: Vec<Column>,
+    columns: Vec<Column>,
     data: Vec<Vec<String>>,
-    curr: usize,
+    curr_elem: usize,
+    curr_col: usize,
     num_mode: NumMode,
+    table_focus: TableFocus,
 }
 
 impl Table {
@@ -80,7 +80,7 @@ impl Table {
             addstr(&n_of_c(num_col_size + 2, '-'));
             addstr("+");
 
-            for col in self.schema.iter() {
+            for col in self.columns.iter() {
                 addstr(&format!("{}+", n_of_c((col.width + 2) as usize, '-')));
             }
         }
@@ -92,12 +92,23 @@ impl Table {
                 WHITE_PAIR,
             );
 
-            for col in self.schema.iter() {
-                addstr("|");
-                addstr(&format!(
-                    " {} ",
-                    fit_to_sizel(&col.name, col.width as usize, ' ')
-                ));
+            for (col_num, col) in self.columns.iter().enumerate() {
+                let pair = match self.table_focus {
+                    TableFocus::Column => {
+                        if col_num == self.curr_col {
+                            INV_WHITE_PAIR
+                        } else {
+                            WHITE_PAIR
+                        }
+                    }
+                    _ => WHITE_PAIR,
+                };
+                addstr("| ");
+                attron(COLOR_PAIR(pair));
+                addstr(&format!("{}", col.name));
+                attroff(COLOR_PAIR(pair));
+                addstr(&n_of_c(col.width as usize - col.name.len(), ' '));
+                addstr(" ");
             }
             addstr("|");
         }
@@ -107,7 +118,7 @@ impl Table {
             addstr(&n_of_c(num_col_size + 2, '='));
             addstr("+");
 
-            for col in self.schema.iter() {
+            for col in self.columns.iter() {
                 addstr(&format!("{}+", n_of_c((col.width + 2) as usize, '=')));
             }
         }
@@ -117,9 +128,9 @@ impl Table {
         let start_y: i32 = 7;
         let num_col_size: usize = (self.data.len() as f32).log10() as usize + 1;
         for (row_num, row) in self.data.iter().enumerate() {
-            // freak out if row longer than schema
+            // freak out if row longer than columns
 
-            let pair: i16 = if row_num == self.curr as usize {
+            let pair: i16 = if row_num == self.curr_elem as usize {
                 INV_WHITE_PAIR
             } else {
                 WHITE_PAIR
@@ -133,7 +144,8 @@ impl Table {
                         "{} ",
                         match self.num_mode {
                             NumMode::ABSOLUTE => row_num,
-                            NumMode::RELATIVE => (row_num as i32 - self.curr as i32).abs() as usize,
+                            NumMode::RELATIVE =>
+                                (row_num as i32 - self.curr_elem as i32).abs() as usize,
                         }
                     ),
                     num_col_size + 1,
@@ -143,7 +155,7 @@ impl Table {
             for (col_num, item) in row.iter().enumerate() {
                 addstr(&fit_to_sizel(
                     &format!("| {} ", item),
-                    self.schema[col_num].width as usize + 3,
+                    self.columns[col_num].width as usize + 3,
                     ' ',
                 ));
             }
@@ -159,7 +171,7 @@ impl Table {
             addstr(&n_of_c(num_col_size + 2, '-'));
             addstr("+");
 
-            for col in self.schema.iter() {
+            for col in self.columns.iter() {
                 addstr(&format!("{}+", n_of_c((col.width + 2) as usize, '-')));
             }
             label(
@@ -183,7 +195,7 @@ impl Table {
         let start_y: usize = 4;
         for (col_num, item) in self.data[row_num].iter().enumerate() {
             label(
-                &format!("[{}|{}]", col_num + 1, self.schema[col_num].name),
+                &format!("[{}|{}]", col_num + 1, self.columns[col_num].name),
                 (start_y + col_num * 3) as i32,
                 4,
                 WHITE_PAIR,
@@ -205,21 +217,70 @@ impl Table {
         }
     }
 
+    fn draw_column(&self, motion_num: usize, input_mode: InputMode, input_str: &str) {
+        let start_y: usize = 8;
+        let col = &self.columns[self.curr_col];
+        label("[1|width]: ", start_y as i32, 8, WHITE_PAIR);
+        addstr(&format!("{}", col.width));
+        match input_mode {
+            InputMode::Text if motion_num == 1 => _ = addstr(&format!(" -> {}", input_str)),
+            _ => {}
+        };
+        label("[2|name]:  ", start_y as i32 + 1, 8, WHITE_PAIR);
+        addstr(&format!("{}", col.name));
+        match input_mode {
+            InputMode::Text if motion_num == 2 => _ = addstr(&format!(" -> {}", input_str)),
+            _ => {}
+        };
+        label("[3|type]:  String", start_y as i32 + 2, 8, WHITE_PAIR);
+        // addstr(&format!("{}", col.name));
+        // match input_mode {
+        //     InputMode::Text if motion_num == 2 => _ = addstr(&format!(" -> {}", input_str)),
+        //     _ => {}
+        // };
+    }
+
+    fn to_new(&mut self) {
+        self.data.push(vec!["".to_string(); self.columns.len()]);
+        self.table_focus = TableFocus::NewElement;
+    }
+
+    fn to_view(&mut self) {
+        self.table_focus = TableFocus::View;
+    }
+
+    fn to_sort(&mut self) {
+        self.table_focus = TableFocus::Sort;
+    }
+
+    fn to_table(&mut self) {
+        self.table_focus = TableFocus::Table;
+    }
+
+    fn to_col(&mut self) {
+        self.table_focus = TableFocus::Column;
+        self.curr_col = 0;
+    }
+
+    fn to_elem(&mut self) {
+        self.table_focus = TableFocus::Element;
+    }
+
     fn up(&mut self, by: i32, def: i32) {
         let n: i32 = if by == 0 { def } else { by };
-        if self.curr as i32 - n >= 0 {
-            self.curr -= n as usize;
+        if self.curr_elem as i32 - n >= 0 {
+            self.curr_elem -= n as usize;
         } else {
-            self.curr = 0;
+            self.curr_elem = 0;
         }
     }
 
     fn down(&mut self, by: usize, def: usize) {
         let n: usize = if by == 0 { def } else { by };
-        if self.curr + n < self.data.len() {
-            self.curr += n;
+        if self.curr_elem + n < self.data.len() {
+            self.curr_elem += n;
         } else {
-            self.curr = self.data.len() - 1;
+            self.curr_elem = self.data.len() - 1;
         }
     }
 
@@ -228,6 +289,26 @@ impl Table {
             NumMode::ABSOLUTE => self.num_mode = NumMode::RELATIVE,
             NumMode::RELATIVE => self.num_mode = NumMode::ABSOLUTE,
         }
+    }
+
+    fn prev_col(&mut self) {
+        if self.curr_col > 0 {
+            self.curr_col -= 1;
+        }
+    }
+
+    fn next_col(&mut self) {
+        if self.curr_col + 1 < self.columns.len() {
+            self.curr_col += 1;
+        }
+    }
+
+    fn del_elem(&mut self) {
+        _ = self.data.remove(self.curr_elem);
+        if self.curr_elem + 1 > self.data.len() {
+            self.curr_elem = self.data.len() - 1;
+        }
+        self.table_focus = TableFocus::Table;
     }
 }
 
@@ -264,14 +345,6 @@ enum NumMode {
     RELATIVE,
 }
 
-fn save_table(table: &Table) {
-    let file_path = "classes.json";
-    let mut file = File::create(file_path).unwrap();
-    writeln!(file, "{}", stringify!(table.data));
-}
-
-fn load_table() {}
-
 fn main() {
     initscr();
     noecho();
@@ -293,7 +366,7 @@ fn main() {
     init_pair(CYAN_PAIR, COLOR_CYAN, COLOR_BLACK);
     init_pair(INV_CYAN_PAIR, COLOR_BLACK, COLOR_CYAN);
 
-    let schema: Vec<Column> = vec![
+    let columns: Vec<Column> = vec![
         Column {
             name: "Course".to_string(),
             width: 20,
@@ -349,13 +422,13 @@ fn main() {
     let mut table: Table = Table {
         title: "Spring 2021 Schedule".to_string(),
         subtitle: "Spring 2021 Schedule Subtitle".to_string(),
-        schema,
+        columns,
         data,
-        curr: 0,
+        curr_elem: 0,
+        curr_col: 0,
         num_mode: NumMode::ABSOLUTE,
+        table_focus: TableFocus::Table,
     };
-    let mut table_focus: TableFocus = TableFocus::Table;
-
     let mut input_mode: InputMode = InputMode::Normal;
     let mut input_str: String = "".to_string();
     let mut motion_num: usize = 0;
@@ -371,7 +444,7 @@ fn main() {
         table.draw_title();
         table.draw_subtitle();
 
-        match table_focus {
+        match table.table_focus {
             TableFocus::Table => {
                 table.draw_data();
                 table.draw_views();
@@ -379,139 +452,170 @@ fn main() {
                 table.draw_footer();
             }
             TableFocus::Element => {
-                table.draw_elem(table.curr, motion_num as usize, input_mode, &input_str)
+                table.draw_elem(table.curr_elem, motion_num as usize, input_mode, &input_str)
             }
             TableFocus::NewElement => table.draw_elem(
+                // TODO change table.curr_elem to table.data.len() - 1, remove this var pass
                 table.data.len() - 1,
                 motion_num,
                 InputMode::Text,
                 &input_str,
             ),
+            TableFocus::Column => {
+                table.draw_headers();
+                table.draw_column(motion_num as usize, input_mode, &input_str)
+            }
             _ => todo!(),
         };
 
         if motion_num != 0 {
             mv(screen_h - 1, 0);
             addstr(&format!("{}", motion_num));
-            // label(&format!("{}", motion_num), screen_h, 4, WHITE_PAIR);
         }
 
         let key = getch();
         match input_mode {
+            // TODO table focus > key > input mode
             InputMode::Text => match key as u8 as char {
-                '\n' | '\r' => match table_focus {
+                '\n' => match table.table_focus {
                     TableFocus::Element => {
-                        table.data[table.curr].push(input_str);
-                        table.data[table.curr].swap_remove(motion_num - 1);
+                        table.data[table.curr_elem].push(input_str);
+                        table.data[table.curr_elem].swap_remove(motion_num - 1);
                         input_str = "".to_string();
                         motion_num = 0;
                         input_mode = InputMode::Normal;
                     }
                     TableFocus::NewElement => {
-                        if motion_num < table.schema.len() {
-                            let table_len = table.data.len();
-                            table.data[table_len - 1].push(input_str);
-                            table.data[table_len - 1].swap_remove(motion_num - 1);
-                            input_str = "".to_string();
+                        let table_len = table.data.len();
+                        table.data[table_len - 1].push(input_str);
+                        table.data[table_len - 1].swap_remove(motion_num - 1);
+                        input_str = "".to_string();
+
+                        if motion_num < table.columns.len() {
                             motion_num += 1;
                         } else {
-                            let table_len = table.data.len();
-                            table.data[table_len - 1].push(input_str);
-                            table.data[table_len - 1].swap_remove(motion_num - 1);
-                            table.curr = table_len - 1;
-                            table_focus = TableFocus::Table;
+                            table.curr_elem = table_len - 1;
+                            table.table_focus = TableFocus::Table;
                             input_mode = InputMode::Normal;
                             motion_num = 0;
-                            input_str = "".to_string();
                         }
                     }
+                    TableFocus::Column => match motion_num {
+                        1 => {
+                            // table.columns[table.curr_col].width = input_str; // type conversion?
+                            table.columns[table.curr_col].width = 14; // type conversion?
+                            input_str = "".to_string();
+                            motion_num = 0;
+                            input_mode = InputMode::Normal;
+                        }
+                        2 => {
+                            table.columns[table.curr_col].name = input_str;
+                            input_str = "".to_string();
+                            motion_num = 0;
+                            input_mode = InputMode::Normal;
+                        }
+                        // 3 => {}
+                        _ => {}
+                    },
                     _ => {}
                 }, // enter
-                '\x1b' => quit = true,                  // escape
+                '\x1b' => {
+                    motion_num = 0;
+                    input_mode = InputMode::Normal;
+                    table.to_table();
+                }
                 '\x08' | '\x7f' => _ = input_str.pop(), // backspace
                 _ => input_str.push_str(&(key as u8 as char).to_string()),
             },
             InputMode::Normal => match key as u8 as char {
                 'q' => quit = true,
                 'w' => todo!(),
-                'j' => match table_focus {
+                'j' => match table.table_focus {
                     TableFocus::Table => {
                         table.down(motion_num, 1);
                         motion_num = 0;
                     }
                     _ => {}
                 },
-                'k' => match table_focus {
+                'k' => match table.table_focus {
                     TableFocus::Table => {
                         table.up(motion_num as i32, 1);
                         motion_num = 0;
                     }
                     _ => {}
                 },
-                'J' => match table_focus {
+                'J' => match table.table_focus {
                     TableFocus::Table => {
                         table.down(motion_num, 10);
                         motion_num = 0;
                     }
                     _ => {}
                 },
-                'K' => match table_focus {
+                'K' => match table.table_focus {
                     TableFocus::Table => {
                         table.up(motion_num as i32, 10);
                         motion_num = 0;
                     }
                     _ => {}
                 },
-                'h' => {}
-                'l' => {}
-                'v' => match table_focus {
+                'h' => match table.table_focus {
+                    TableFocus::Column => {
+                        table.prev_col();
+                    }
+                    _ => {}
+                },
+                'l' => match table.table_focus {
+                    TableFocus::Column => {
+                        table.next_col();
+                    }
+                    _ => {}
+                },
+                'v' => match table.table_focus {
                     TableFocus::Table => {
-                        table_focus = TableFocus::View;
+                        table.to_view();
                         motion_num = 0;
                     }
                     _ => {}
                 },
-                'c' => match table_focus {
+                'c' => match table.table_focus {
                     TableFocus::Table => {
-                        table_focus = TableFocus::Column;
+                        table.to_col();
+                        motion_num = 0;
+                    }
+                    TableFocus::Column => {
+                        table.to_table();
                         motion_num = 0;
                     }
                     _ => {}
                 },
-                's' => match table_focus {
+                's' => match table.table_focus {
                     TableFocus::Table => {
-                        table_focus = TableFocus::Sort;
+                        table.to_sort();
                         motion_num = 0;
                     }
                     _ => {}
                 },
                 'V' => {}
                 'n' => table.switch_num_mode(),
-                'i' => match table_focus {
+                'i' => match table.table_focus {
                     TableFocus::Table => {
-                        table.data.push(vec!["".to_string(); table.schema.len()]);
-                        table_focus = TableFocus::NewElement;
+                        table.to_new();
                         motion_num = 1;
                         input_mode = InputMode::Text;
-                        // todo!(); // insert new row into table.data
                     }
                     _ => {}
                 },
-                'd' => match table_focus {
+                'd' => match table.table_focus {
                     TableFocus::Table | TableFocus::Element => {
-                        _ = table.data.remove(table.curr);
-                        if table.curr + 1 > table.data.len() {
-                            table.curr = table.data.len() - 1;
-                        }
-                        table_focus = TableFocus::Table;
+                        table.del_elem();
                     }
                     _ => {}
                 },
                 'f' => {}
                 'u' => {}
-                '\n' => match table_focus {
+                '\n' => match table.table_focus {
                     TableFocus::Table => {
-                        table_focus = TableFocus::Element;
+                        table.to_elem();
                         motion_num = 0;
                     }
                     TableFocus::Element => {
@@ -519,12 +623,14 @@ fn main() {
                             input_mode = InputMode::Text;
                         }
                     }
-                    TableFocus::NewElement => {
-                        todo!() // place in new string
+                    TableFocus::Column => {
+                        if motion_num > 0 {
+                            input_mode = InputMode::Text;
+                        }
                     }
                     _ => {}
                 },
-                '\x1b' => table_focus = TableFocus::Table,
+                '\x1b' => table.to_table(),
                 ':' => {}
                 '=' => {}
                 '?' => {}
@@ -537,7 +643,6 @@ fn main() {
             },
         }
     }
-    // save_table(&table);
 
     endwin();
 }

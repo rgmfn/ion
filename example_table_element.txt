@@ -1,20 +1,20 @@
 Spring 2021 Schedule
     Spring 2021 Schedule Subtitle
 
-    [0|Course]
-      CSE 112 -> New class name
+    [1|Course]
+      CSE 112 -> CSE 180
 
-    [1|Name]
+    [2|Name]
       Assignment 3
 
-    [2|Date]
+    [3|Date]
       5/17/21
 
-    [3|Status]
+    [4|Status]
       Started
 
-    [4|Type]
+    [5|Type]
       Assignment
 
-    [5|Notes]
+    [6|Notes]
       ----
