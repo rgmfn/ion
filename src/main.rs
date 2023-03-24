@@ -1,5 +1,10 @@
 use ncurses::*;
-use std::cmp::max;
+use serde::{Deserialize, Serialize};
+use serde_json::{Result, Value};
+// use serde_json::Result;
+use std::fs::File;
+use std::io::Write;
+use std::{cmp::max, fs};
 
 const WHITE_PAIR: i16 = 0;
 const INV_WHITE_PAIR: i16 = 1;
@@ -20,9 +25,10 @@ const INV_CYAN_PAIR: i16 = 13;
 enum InputMode {
     Normal,
     Text,
-    // CMD,
+    // Cmd, ?
 }
 
+#[derive(Serialize, Deserialize)]
 struct Column {
     name: String,
     width: i32,
@@ -37,6 +43,7 @@ fn label(text: &str, y: i32, x: i32, pair: i16) {
     attroff(COLOR_PAIR(pair));
 }
 
+#[derive(Serialize, Deserialize)]
 enum TableFocus {
     Table,
     Element,
@@ -47,6 +54,7 @@ enum TableFocus {
     NewColumn,
 }
 
+#[derive(Serialize, Deserialize)]
 struct Table {
     title: String,
     subtitle: String,
@@ -145,8 +153,8 @@ impl Table {
                     &format!(
                         "{} ",
                         match self.num_mode {
-                            NumMode::ABSOLUTE => row_num + 1,
-                            NumMode::RELATIVE =>
+                            NumMode::Absolute => row_num + 1,
+                            NumMode::Relative =>
                                 (row_num as i32 - self.curr_elem as i32).abs() as usize,
                         }
                     ),
@@ -310,8 +318,8 @@ impl Table {
 
     fn switch_num_mode(&mut self) {
         match self.num_mode {
-            NumMode::ABSOLUTE => self.num_mode = NumMode::RELATIVE,
-            NumMode::RELATIVE => self.num_mode = NumMode::ABSOLUTE,
+            NumMode::Absolute => self.num_mode = NumMode::Relative,
+            NumMode::Relative => self.num_mode = NumMode::Absolute,
         }
     }
 
@@ -403,20 +411,70 @@ fn fit_to_sizer(text: &str, n: usize, pad: char) -> String {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 enum NumMode {
-    ABSOLUTE,
-    RELATIVE,
+    Absolute,
+    Relative,
 }
 
-// XXX auto size column with =
-// XXX reorganize input tree
-// XXX insert a new column
+// fn write_table(table: &Table) -> Result<()> {
+//     let j = serde_json::to_string(&table)?;
+//     println!("{}", j);
+//     Ok(())
+// }
+
 // TODO delete a column
 // TODO give columns default values
 // TODO e to edit values?
 // TODO add/save data
 // TODO create different types for column values, not just strings
 // TODO undo system (hosted in hidden file? so it persists)
+
+fn untyped_example() -> Result<()> {
+    // let data = r#"
+    //     {
+    //         "name": "John Doe",
+    //         "age": 43,
+    //         "phones": [
+    //             "+44 1235467",
+    //             "+44 2345678"
+    //         ]
+    //     }"#;
+    // let data = "{\n\"name\": \"John Doe\",\n\"age\": 43,\n\"phones\": [\n\"+44 1234567\",\n\"+44 2345678\"\n]\n}";
+    let data: String = fs::read_to_string(".classes.json").expect("unable to read file");
+
+    println!("try");
+    let res: Result<Value> = serde_json::from_str(&data);
+
+    let val: Value = match res {
+        Ok(v) => v,
+        Err(error) => panic!("Problem reading json: {:?}", error),
+    };
+
+    println!(
+        "Please call {} at number {}",
+        val["title"], val["data"][1][2]
+    );
+    Ok(())
+}
+
+fn load_table(file_str: &str) -> Table {
+    let table_str: String = fs::read_to_string(file_str).expect("No file to read");
+    let res: Result<Table> = serde_json::from_str(&table_str);
+    let table: Table = match res {
+        Ok(t) => t,
+        Err(error) => panic!("Problem reading json: {:?}", error),
+    };
+
+    table
+}
+
+fn save_table(table: Table, file_str: &str) -> Result<()> {
+    let mut file = File::create(file_str).unwrap();
+    let j = serde_json::to_string(&table)?;
+    writeln!(file, "{}", j);
+    Ok(())
+}
 
 fn main() {
     initscr();
@@ -439,69 +497,7 @@ fn main() {
     init_pair(CYAN_PAIR, COLOR_CYAN, COLOR_BLACK);
     init_pair(INV_CYAN_PAIR, COLOR_BLACK, COLOR_CYAN);
 
-    let columns: Vec<Column> = vec![
-        Column {
-            name: "Course".to_string(),
-            width: 20,
-        },
-        Column {
-            name: "Name".to_string(),
-            width: 20,
-        },
-        Column {
-            name: "Date".to_string(),
-            width: 20,
-        },
-        Column {
-            name: "Status".to_string(),
-            width: 20,
-        },
-        // Column {
-        //     name: "Type".to_string(),
-        //     width: 20,
-        // },
-    ];
-    let data: Vec<Vec<String>> = vec![
-        vec![
-            "CSE 115A".to_string(),
-            "Essay".to_string(),
-            "03/17/23".to_string(),
-            "Not Started".to_string(),
-            // "Paper".to_string(),
-        ],
-        vec![
-            "CSE 180".to_string(),
-            "Final".to_string(),
-            "03/23/23".to_string(),
-            "Not Started".to_string(),
-            // "Exam".to_string(),
-        ],
-        vec![
-            "CSE 115A".to_string(),
-            "TSR 4".to_string(),
-            "02/14/23".to_string(),
-            "Completed".to_string(),
-            // "Assignment".to_string(),
-        ],
-        vec![
-            "CSE 180".to_string(),
-            "Gradiance 1".to_string(),
-            "01/26/23".to_string(),
-            "Completed".to_string(),
-            // "Assingment".to_string(),
-        ],
-    ];
-
-    let mut table: Table = Table {
-        title: "Spring 2021 Schedule".to_string(),
-        subtitle: "Spring 2021 Schedule Subtitle".to_string(),
-        columns,
-        data,
-        curr_elem: 0,
-        curr_col: 0,
-        num_mode: NumMode::ABSOLUTE,
-        table_focus: TableFocus::Table,
-    };
+    let mut table: Table = load_table("table.json");
     let mut input_mode: InputMode = InputMode::Normal;
     let mut input_str: String = "".to_string();
     let mut motion_num: usize = 0;
@@ -729,6 +725,7 @@ fn main() {
             preserve_motion = false;
         }
     }
+    save_table(table, "table.json");
 
     endwin();
 }
