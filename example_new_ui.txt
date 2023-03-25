@@ -1,0 +1,13 @@
+Spring 2021 Schedule
+
+    Spring 2021 Schedule Subtitle
+    View: All
+    ┌───┬──────────┬─────────────┬──────────┬─────────────┐
+    │   │ Course   │ Name        │ Date     │ Status      │
+    ╞═══╪══════════╪═════════════╪══════════╪═════════════╡
+    │ 1 │ CSE 115A │ Essay       │ 03/17/23 │ Not Started │
+    │ 2 │ CSE 180  │ Final       │ 03/23/23 │ Completed   │
+    │ 3 │ CSE 115A │ TSR 4       │ 02/14/23 │ Completed   │
+    │ 4 │ CSE 180  │ Gradiance 1 │ 01/26/23 │ Completed   │
+    └───┴──────────┴─────────────┴──────────┴─────────────┘
+     4 entries

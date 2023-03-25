@@ -1,7 +1,6 @@
 use ncurses::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{Result, Value};
-// use serde_json::Result;
 use std::fs::File;
 use std::io::Write;
 use std::{cmp::max, fs};
@@ -374,6 +373,14 @@ impl Table {
         }
     }
 
+    fn del_curr_col(&mut self) {
+        let curr_col = self.curr_col;
+        self.columns.remove(curr_col);
+        for row_num in 0..self.data.len() {
+            self.data[row_num].remove(curr_col);
+        }
+    }
+
     fn del_curr_elem(&mut self) {
         _ = self.data.remove(self.curr_elem);
         if self.curr_elem + 1 > self.data.len() {
@@ -417,47 +424,6 @@ enum NumMode {
     Relative,
 }
 
-// fn write_table(table: &Table) -> Result<()> {
-//     let j = serde_json::to_string(&table)?;
-//     println!("{}", j);
-//     Ok(())
-// }
-
-// TODO delete a column
-// TODO give columns default values
-// TODO e to edit values?
-// TODO add/save data
-// TODO create different types for column values, not just strings
-// TODO undo system (hosted in hidden file? so it persists)
-
-fn untyped_example() -> Result<()> {
-    // let data = r#"
-    //     {
-    //         "name": "John Doe",
-    //         "age": 43,
-    //         "phones": [
-    //             "+44 1235467",
-    //             "+44 2345678"
-    //         ]
-    //     }"#;
-    // let data = "{\n\"name\": \"John Doe\",\n\"age\": 43,\n\"phones\": [\n\"+44 1234567\",\n\"+44 2345678\"\n]\n}";
-    let data: String = fs::read_to_string(".classes.json").expect("unable to read file");
-
-    println!("try");
-    let res: Result<Value> = serde_json::from_str(&data);
-
-    let val: Value = match res {
-        Ok(v) => v,
-        Err(error) => panic!("Problem reading json: {:?}", error),
-    };
-
-    println!(
-        "Please call {} at number {}",
-        val["title"], val["data"][1][2]
-    );
-    Ok(())
-}
-
 fn load_table(file_str: &str) -> Table {
     let table_str: String = fs::read_to_string(file_str).expect("No file to read");
     let res: Result<Table> = serde_json::from_str(&table_str);
@@ -469,12 +435,19 @@ fn load_table(file_str: &str) -> Table {
     table
 }
 
-fn save_table(table: Table, file_str: &str) -> Result<()> {
+fn save_table(table: &Table, file_str: &str) {
     let mut file = File::create(file_str).unwrap();
-    let j = serde_json::to_string(&table)?;
-    writeln!(file, "{}", j);
-    Ok(())
+    let res = serde_json::to_string_pretty(table);
+    let json = match res {
+        Ok(j) => j,
+        Err(error) => panic!("Problem saving json: {:?}", error),
+    };
+    writeln!(file, "{}", json);
 }
+
+// TODO move columns with J/K
+// TODO e to edit values?
+// TODO undo system (hosted in hidden file? so it persists)
 
 fn main() {
     initscr();
@@ -564,6 +537,7 @@ fn main() {
                         preserve_motion = true;
                     }
                     'd' => table.del_curr_elem(),
+                    'w' => _ = save_table(&table, "table.json"),
                     '\n' => table.to_curr_elem(),
                     '=' => table.auto_size_cols(),
                     '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0' => {
@@ -612,6 +586,7 @@ fn main() {
                         input_str = "".to_string();
                         preserve_motion = true;
                     }
+                    'd' => table.del_curr_col(),
                     '\n' if motion_num > 0 => {
                         input_mode = InputMode::Text;
                         input_str = "".to_string();
@@ -725,7 +700,6 @@ fn main() {
             preserve_motion = false;
         }
     }
-    save_table(table, "table.json");
 
     endwin();
 }
