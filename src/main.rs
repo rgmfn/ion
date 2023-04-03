@@ -1,6 +1,6 @@
 use ncurses::*;
 use serde::{Deserialize, Serialize};
-use serde_json::{Result, Value};
+use serde_json::Result;
 use std::fs::File;
 use std::io::Write;
 use std::{cmp::max, fs};
@@ -60,7 +60,7 @@ struct Table {
     // views: Vec<View>,
     columns: Vec<Column>,
     data: Vec<Vec<String>>,
-    curr_elem: usize,
+    curr_row: usize,
     curr_col: usize,
     num_mode: NumMode,
     table_focus: TableFocus,
@@ -139,7 +139,7 @@ impl Table {
         for (row_num, row) in self.data.iter().enumerate() {
             // freak out if row longer than columns
 
-            let pair: i16 = if row_num == self.curr_elem as usize {
+            let pair: i16 = if row_num == self.curr_row as usize {
                 INV_WHITE_PAIR
             } else {
                 WHITE_PAIR
@@ -154,7 +154,7 @@ impl Table {
                         match self.num_mode {
                             NumMode::Absolute => row_num + 1,
                             NumMode::Relative =>
-                                (row_num as i32 - self.curr_elem as i32).abs() as usize,
+                                (row_num as i32 - self.curr_row as i32).abs() as usize,
                         }
                     ),
                     num_col_size + 1,
@@ -202,7 +202,7 @@ impl Table {
 
     fn draw_elem(&self, motion_num: usize, input_mode: InputMode, input_str: &str) {
         let start_y: usize = 4;
-        for (col_num, item) in self.data[self.curr_elem].iter().enumerate() {
+        for (col_num, item) in self.data[self.curr_row].iter().enumerate() {
             label(
                 &format!("[{}|{}]", col_num + 1, self.columns[col_num].name),
                 (start_y + col_num * 3) as i32,
@@ -249,29 +249,29 @@ impl Table {
         // };
     }
 
-    fn to_new_elem(&mut self) {
+    fn to_new_elem_mode(&mut self) {
         self.data.push(vec!["".to_string(); self.columns.len()]);
         self.table_focus = TableFocus::NewElement;
     }
 
-    fn to_view(&mut self) {
+    fn to_view_mode(&mut self) {
         self.table_focus = TableFocus::View;
     }
 
-    fn to_sort(&mut self) {
+    fn to_sort_mode(&mut self) {
         self.table_focus = TableFocus::Sort;
     }
 
-    fn to_table(&mut self) {
+    fn to_table_mode(&mut self) {
         self.table_focus = TableFocus::Table;
     }
 
-    fn to_col(&mut self) {
+    fn to_col_mode(&mut self) {
         self.table_focus = TableFocus::Column;
         self.curr_col = 0;
     }
 
-    fn to_new_col(&mut self) {
+    fn to_new_col_mode(&mut self) {
         let new_col = Column {
             name: "".to_string(),
             width: 0,
@@ -287,31 +287,31 @@ impl Table {
         self.table_focus = TableFocus::NewColumn;
     }
 
-    fn to_curr_elem(&mut self) {
+    fn view_curr_elem(&mut self) {
         self.table_focus = TableFocus::Element;
     }
 
     fn up(&mut self, by: i32, def: i32) {
         let n: i32 = if by == 0 { def } else { by };
-        if self.curr_elem as i32 - n >= 0 {
-            self.curr_elem -= n as usize;
+        if self.curr_row as i32 - n >= 0 {
+            self.curr_row -= n as usize;
         } else {
-            self.curr_elem = 0;
+            self.curr_row = 0;
         }
     }
 
     fn down(&mut self, by: usize, def: usize) {
         let n: usize = if by == 0 { def } else { by };
-        if self.curr_elem + n < self.data.len() {
-            self.curr_elem += n;
+        if self.curr_row + n < self.data.len() {
+            self.curr_row += n;
         } else {
-            self.curr_elem = self.data.len() - 1;
+            self.curr_row = self.data.len() - 1;
         }
     }
 
-    fn set_curr_elem(&mut self, to: i32) {
+    fn goto_row(&mut self, to: i32) {
         if to > 0 && to <= self.data.len() as i32 {
-            self.curr_elem = to as usize - 1;
+            self.curr_row = to as usize - 1;
         }
     }
 
@@ -381,7 +381,6 @@ impl Table {
         }
     }
 
-    // also move table data
     fn move_curr_col_left(&mut self) {
         //   < X
         // 0 1 2 3 4
@@ -416,7 +415,6 @@ impl Table {
         self.curr_col -= 1;
     }
 
-    // TODO also move table data
     fn move_curr_col_right(&mut self) {
         //     X >
         // 0 1 2 3 4
@@ -450,10 +448,46 @@ impl Table {
         self.curr_col += 1;
     }
 
+    // fn move_curr_row_up(&mut self) {
+    //     if self.curr_row <= 0 {
+    //         return;
+    //     }
+
+    //     let x: Vec<String> = self.data[self.curr_row - 1]
+    //         .iter()
+    //         .map(|s| s.clone())
+    //         .collect();
+    //     let y: Vec<String> = self.data[self.curr_row].iter().map(|s| s.clone()).collect();
+    //     self.data.push(x);
+    //     self.data.push(y);
+    //     self.data.swap_remove(self.curr_row - 1);
+    //     self.data.swap_remove(self.curr_row);
+
+    //     self.curr_row -= 1;
+    // }
+
+    // fn move_curr_row_down(&mut self) {
+    //     if self.curr_row + 1 >= self.data.len() {
+    //         return;
+    //     }
+
+    //     let x: Vec<String> = self.data[self.curr_row].iter().map(|s| s.clone()).collect();
+    //     let y: Vec<String> = self.data[self.curr_row + 1]
+    //         .iter()
+    //         .map(|s| s.clone())
+    //         .collect();
+    //     self.data.push(x);
+    //     self.data.push(y);
+    //     self.data.swap_remove(self.curr_row);
+    //     self.data.swap_remove(self.curr_row + 1);
+
+    //     self.curr_row += 1;
+    // }
+
     fn del_curr_elem(&mut self) {
-        _ = self.data.remove(self.curr_elem);
-        if self.curr_elem + 1 > self.data.len() {
-            self.curr_elem = self.data.len() - 1;
+        _ = self.data.remove(self.curr_row);
+        if self.curr_row + 1 > self.data.len() {
+            self.curr_row = self.data.len() - 1;
         }
         self.table_focus = TableFocus::Table;
     }
@@ -593,23 +627,25 @@ fn main() {
                     'k' => table.up(motion_num as i32, 1),
                     'J' => table.down(motion_num, 10),
                     'K' => table.up(motion_num as i32, 10),
-                    'G' => table.set_curr_elem(motion_num as i32),
-                    'c' => table.to_col(),
-                    's' => table.to_sort(),
-                    'v' => table.to_view(),
+                    // 'J' => table.move_curr_row_down(),
+                    // 'K' => table.move_curr_row_up(),
+                    'G' => table.goto_row(motion_num as i32),
+                    'c' => table.to_col_mode(),
+                    's' => table.to_sort_mode(),
+                    'v' => table.to_view_mode(),
                     // 'V' => {}
                     'n' => table.switch_num_mode(),
                     'i' => {
-                        table.to_new_elem();
+                        table.to_new_elem_mode();
                         motion_num = 1;
-                        table.curr_elem = table.data.len() - 1;
+                        table.curr_row = table.data.len() - 1;
                         input_mode = InputMode::Text;
                         input_str = "".to_string();
                         preserve_motion = true;
                     }
                     'd' => table.del_curr_elem(),
                     'w' => _ = save_table(&table, "table.json"),
-                    '\n' => table.to_curr_elem(),
+                    '\n' => table.view_curr_elem(),
                     '=' => table.auto_size_cols(),
                     '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0' => {
                         motion_num = motion_num * 10 + (key as usize - 48);
@@ -622,7 +658,7 @@ fn main() {
                     _ => {}
                 },
                 TableFocus::Element => match key as u8 as char {
-                    'q' | '\x1b' => table.to_table(),
+                    'q' | '\x1b' => table.to_table_mode(),
                     'j' => table.down(motion_num, 1),
                     'k' => table.up(motion_num as i32, 1),
                     'd' => table.del_curr_elem(),
@@ -642,17 +678,17 @@ fn main() {
                     _ => {}
                 },
                 TableFocus::Column => match key as u8 as char {
-                    'q' | '\x1b' => table.to_table(),
+                    'q' | '\x1b' => table.to_table_mode(),
                     'h' => table.prev_col(),
                     'l' => table.next_col(),
                     'H' => table.move_curr_col_left(),
                     'L' => table.move_curr_col_right(),
-                    'c' => table.to_table(),
+                    'c' => table.to_table_mode(),
                     '=' => table.auto_size_curr_col(),
                     '+' => table.grow_curr_col(motion_num),
                     '-' => table.shrink_curr_col(motion_num as i32),
                     'i' => {
-                        table.to_new_col();
+                        table.to_new_col_mode();
                         motion_num = 1;
                         table.curr_col = table.columns.len() - 1;
                         input_mode = InputMode::Text;
@@ -680,8 +716,8 @@ fn main() {
             InputMode::Text => match key as u8 as char {
                 '\n' => match table.table_focus {
                     TableFocus::Element => {
-                        table.data[table.curr_elem].push(input_str);
-                        table.data[table.curr_elem].swap_remove(motion_num - 1);
+                        table.data[table.curr_row].push(input_str);
+                        table.data[table.curr_row].swap_remove(motion_num - 1);
                         input_str = "".to_string();
                         input_mode = InputMode::Normal;
                     }
@@ -695,8 +731,8 @@ fn main() {
                             motion_num += 1;
                             preserve_motion = true;
                         } else {
-                            table.curr_elem = table_len - 1;
-                            table.to_table();
+                            table.curr_row = table_len - 1;
+                            table.to_table_mode();
                             input_mode = InputMode::Normal;
                         }
                     }
@@ -741,7 +777,7 @@ fn main() {
                                     );
                                 }
                                 input_str = "".to_string();
-                                table.to_table();
+                                table.to_table_mode();
                                 input_mode = InputMode::Normal;
                             }
                             // 3 => {
@@ -754,7 +790,7 @@ fn main() {
                 },
                 '\x1b' => {
                     input_mode = InputMode::Normal;
-                    table.to_table();
+                    table.to_table_mode();
                 }
                 '\x08' | '\x7f' => {
                     input_str.pop();

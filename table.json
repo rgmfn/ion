@@ -1,0 +1,52 @@
+{
+  "title": "Spring 2021 Schedule",
+  "subtitle": "Spring 2021 Schedule Subtitle",
+  "columns": [
+    {
+      "name": "Course",
+      "width": 8
+    },
+    {
+      "name": "Name",
+      "width": 11
+    },
+    {
+      "name": "Status",
+      "width": 11
+    },
+    {
+      "name": "Date",
+      "width": 8
+    }
+  ],
+  "data": [
+    [
+      "CSE 115A",
+      "Essay",
+      "Not Started",
+      "03/23/23"
+    ],
+    [
+      "CSE 180",
+      "Final",
+      "Completed",
+      "01/24/97"
+    ],
+    [
+      "CSE 115A",
+      "TSR 4",
+      "Completed",
+      "05/06/07"
+    ],
+    [
+      "CSE 180",
+      "Gradiance 1",
+      "Completed",
+      "01/10/01"
+    ]
+  ],
+  "curr_row": 3,
+  "curr_col": 3,
+  "num_mode": "Absolute",
+  "table_focus": "Table"
+}
