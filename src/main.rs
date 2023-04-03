@@ -404,6 +404,15 @@ impl Table {
         self.columns.swap_remove(self.curr_col - 1);
         self.columns.swap_remove(self.curr_col);
 
+        for i in 0..self.columns.len() {
+            let x = self.data[i][self.curr_col - 1].clone();
+            let y = self.data[i][self.curr_col].clone();
+            self.data[i].push(x);
+            self.data[i].push(y);
+            self.data[i].swap_remove(self.curr_col - 1);
+            self.data[i].swap_remove(self.curr_col);
+        }
+
         self.curr_col -= 1;
     }
 
@@ -428,6 +437,15 @@ impl Table {
 
         self.columns.swap_remove(self.curr_col);
         self.columns.swap_remove(self.curr_col + 1);
+
+        for i in 0..self.columns.len() {
+            let x = self.data[i][self.curr_col].clone();
+            let y = self.data[i][self.curr_col + 1].clone();
+            self.data[i].push(x);
+            self.data[i].push(y);
+            self.data[i].swap_remove(self.curr_col);
+            self.data[i].swap_remove(self.curr_col + 1);
+        }
 
         self.curr_col += 1;
     }
