@@ -381,6 +381,57 @@ impl Table {
         }
     }
 
+    // also move table data
+    fn move_curr_col_left(&mut self) {
+        //   < X
+        // 0 1 2 3 4
+        // 0 1 2 3 4 1 2
+        // 0 2 1 3 4
+
+        if self.curr_col <= 0 {
+            return;
+        }
+
+        self.columns.push(Column {
+            name: self.columns[self.curr_col - 1].name.clone(),
+            width: self.columns[self.curr_col - 1].width,
+        });
+        self.columns.push(Column {
+            name: self.columns[self.curr_col].name.clone(),
+            width: self.columns[self.curr_col].width,
+        });
+
+        self.columns.swap_remove(self.curr_col - 1);
+        self.columns.swap_remove(self.curr_col);
+
+        self.curr_col -= 1;
+    }
+
+    // TODO also move table data
+    fn move_curr_col_right(&mut self) {
+        //     X >
+        // 0 1 2 3 4
+        // 0 1 2 3 4 2 3
+        // 0 1 3 2 4
+        if self.curr_col + 1 >= self.columns.len() {
+            return;
+        }
+
+        self.columns.push(Column {
+            name: self.columns[self.curr_col].name.clone(),
+            width: self.columns[self.curr_col].width,
+        });
+        self.columns.push(Column {
+            name: self.columns[self.curr_col + 1].name.clone(),
+            width: self.columns[self.curr_col + 1].width,
+        });
+
+        self.columns.swap_remove(self.curr_col);
+        self.columns.swap_remove(self.curr_col + 1);
+
+        self.curr_col += 1;
+    }
+
     fn del_curr_elem(&mut self) {
         _ = self.data.remove(self.curr_elem);
         if self.curr_elem + 1 > self.data.len() {
@@ -445,9 +496,11 @@ fn save_table(table: &Table, file_str: &str) {
     writeln!(file, "{}", json);
 }
 
-// TODO move columns with J/K
+// TODO move columns with H/L
 // TODO e to edit values?
 // TODO undo system (hosted in hidden file? so it persists)
+// TODO messages at the bottom of the screen (& move motion number)
+// TODO allow writing to path or default file
 
 fn main() {
     initscr();
@@ -574,6 +627,8 @@ fn main() {
                     'q' | '\x1b' => table.to_table(),
                     'h' => table.prev_col(),
                     'l' => table.next_col(),
+                    'H' => table.move_curr_col_left(),
+                    'L' => table.move_curr_col_right(),
                     'c' => table.to_table(),
                     '=' => table.auto_size_curr_col(),
                     '+' => table.grow_curr_col(motion_num),
