@@ -24,7 +24,7 @@ const INV_CYAN_PAIR: i16 = 13;
 enum InputMode {
     Normal,
     Text,
-    // Cmd, ?
+    Cmd,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -64,6 +64,7 @@ struct Table {
     curr_col: usize,
     num_mode: NumMode,
     table_focus: TableFocus,
+    path: String,
 }
 
 impl Table {
@@ -219,6 +220,9 @@ impl Table {
                 InputMode::Text => {
                     if motion_num == col_num + 1 {
                         addstr(&format!(" -> {}", input_str));
+                        attron(COLOR_PAIR(INV_WHITE_PAIR));
+                        addstr(" ");
+                        attroff(COLOR_PAIR(INV_WHITE_PAIR));
                     }
                 }
                 _ => {}
@@ -247,6 +251,7 @@ impl Table {
         //     InputMode::Text if motion_num == 2 => _ = addstr(&format!(" -> {}", input_str)),
         //     _ => {}
         // };
+        // TODO default value
     }
 
     fn to_new_elem_mode(&mut self) {
@@ -548,11 +553,11 @@ fn save_table(table: &Table, file_str: &str) {
     writeln!(file, "{}", json);
 }
 
-// TODO move columns with H/L
-// TODO e to edit values?
+// TODO e to edit values? (instead of enter)
 // TODO undo system (hosted in hidden file? so it persists)
 // TODO messages at the bottom of the screen (& move motion number)
 // TODO allow writing to path or default file
+// TODO move tables into special folder? tables/ or something?
 
 fn main() {
     initscr();
@@ -578,6 +583,9 @@ fn main() {
     let mut table: Table = load_table("table.json");
     let mut input_mode: InputMode = InputMode::Normal;
     let mut input_str: String = "".to_string();
+    let mut command_str: String = "".to_string();
+    let mut message_str: String = "".to_string();
+    let mut error_message_str: String = "".to_string();
     let mut motion_num: usize = 0;
 
     let mut screen_w = 0;
@@ -614,15 +622,36 @@ fn main() {
         };
 
         if motion_num != 0 {
-            mv(screen_h - 1, 0);
+            mv(screen_h - 1, (screen_w * 3) / 4);
             addstr(&format!("{}", motion_num));
         }
+
+        match input_mode {
+            InputMode::Cmd => {
+                mv(screen_h - 1, 0);
+                addstr(&format!(":{}", command_str));
+                attron(COLOR_PAIR(INV_WHITE_PAIR));
+                addstr(" ");
+                attroff(COLOR_PAIR(INV_WHITE_PAIR));
+            }
+            _ => {}
+        }
+
+        if !error_message_str.is_empty() {
+            label(&format!("{}", error_message_str), screen_h - 1, 0, RED_PAIR);
+        } else if !message_str.is_empty() {
+            label(&format!("{}", message_str), screen_h - 1, 0, WHITE_PAIR);
+        }
+
+        error_message_str = "".to_string();
+        message_str = "".to_string();
 
         let key = getch();
         match input_mode {
             InputMode::Normal => match table.table_focus {
                 TableFocus::Table => match key as u8 as char {
                     'q' | '\x1b' => quit = true,
+                    ':' => input_mode = InputMode::Cmd,
                     'j' => table.down(motion_num, 1),
                     'k' => table.up(motion_num as i32, 1),
                     'J' => table.down(motion_num, 10),
@@ -801,6 +830,57 @@ fn main() {
                     preserve_motion = true;
                 }
             },
+            InputMode::Cmd => {
+                match table.table_focus {
+                    TableFocus::Table => match key as u8 as char {
+                        '\n' => {
+                            let mut tokens = command_str.split(' ').fuse();
+                            match tokens.next() {
+                                Some("w") | Some("write") => match tokens.next() {
+                                    Some(path) => {
+                                        message_str = format!("'{}' written", path);
+                                        table.path = path.to_string();
+                                        save_table(&table, path);
+                                    }
+                                    None => {
+                                        message_str = format!("'{}' written", table.path);
+                                        save_table(&table, &table.path);
+                                    }
+                                },
+                                Some("q") | Some("quit") => match tokens.next() {
+                                    None => quit = true,
+                                    Some(_) => {
+                                        error_message_str =
+                                            "Usage Error: Extra argument(s) to '(q|quit)'".to_string();
+                                    }
+                                },
+                                Some("o") | Some("open") => match tokens.next() {
+                                    Some(path) => table = load_table(path),
+                                    None => error_message_str = "Usage Error: Insufficient arguments to '(o|open) <filepath>'".to_string(),
+                                },
+                                Some("h") | Some("help") => {
+                                    // TODO
+                                },
+                                Some(unknown_command) => {
+                                    error_message_str = format!("Error: Unknown command '{}'", unknown_command)
+                                }
+                                None => {}
+                            }
+
+                            command_str = "".to_string();
+                            input_mode = InputMode::Normal;
+                        }
+                        '\t' => {}
+                        '\x1b' => {
+                            command_str = "".to_string();
+                            input_mode = InputMode::Normal;
+                        }
+                        '\x7f' => _ = command_str.pop(),
+                        _ => command_str.push_str(&(key as u8 as char).to_string()),
+                    },
+                    _ => {}
+                }
+            }
         }
 
         if !preserve_motion {
