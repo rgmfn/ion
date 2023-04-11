@@ -1,5 +1,5 @@
 use ncurses::*;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Result;
 use std::fs::File;
 use std::io::Write;
@@ -27,11 +27,29 @@ enum InputMode {
     Cmd,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct Date {
+    day: i32,
+    month: i32,
+    year: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "lowercase")]
+#[serde(untagged)]
+enum ColumnType {
+    Date(Date),
+    String(String),
+    Boolean(bool),
+    // Multiselect(?),
+    Number(i32),
+}
+
 #[derive(Serialize, Deserialize)]
 struct Column {
     name: String,
     width: i32,
-    // type: X,
+    column_type: ColumnType,
     // default: value,
 }
 
@@ -280,6 +298,7 @@ impl Table {
         let new_col = Column {
             name: "".to_string(),
             width: 0,
+            column_type: ColumnType::String("".to_string()),
         };
         self.columns.push(new_col);
 
@@ -344,8 +363,14 @@ impl Table {
     }
 
     fn grow_curr_col(&mut self, motion_num: usize) {
+        let min_width = self.columns[self.curr_col].name.len();
+
         let amount: i32 = if motion_num > 0 { motion_num as i32 } else { 1 };
         self.columns[self.curr_col].width += amount;
+
+        if self.columns[self.curr_col].width < min_width as i32 {
+            self.columns[self.curr_col].width = min_width as i32;
+        }
     }
 
     fn shrink_curr_col(&mut self, motion_num: i32) {
@@ -399,10 +424,12 @@ impl Table {
         self.columns.push(Column {
             name: self.columns[self.curr_col - 1].name.clone(),
             width: self.columns[self.curr_col - 1].width,
+            column_type: self.columns[self.curr_col - 1].column_type.clone(),
         });
         self.columns.push(Column {
             name: self.columns[self.curr_col].name.clone(),
             width: self.columns[self.curr_col].width,
+            column_type: self.columns[self.curr_col].column_type.clone(),
         });
 
         self.columns.swap_remove(self.curr_col - 1);
@@ -432,10 +459,12 @@ impl Table {
         self.columns.push(Column {
             name: self.columns[self.curr_col].name.clone(),
             width: self.columns[self.curr_col].width,
+            column_type: self.columns[self.curr_col].column_type.clone(),
         });
         self.columns.push(Column {
             name: self.columns[self.curr_col + 1].name.clone(),
             width: self.columns[self.curr_col + 1].width,
+            column_type: self.columns[self.curr_col + 1].column_type.clone(),
         });
 
         self.columns.swap_remove(self.curr_col);
@@ -650,8 +679,9 @@ fn main() {
         match input_mode {
             InputMode::Normal => match table.table_focus {
                 TableFocus::Table => match key as u8 as char {
-                    'q' | '\x1b' => quit = true,
                     ':' => input_mode = InputMode::Cmd,
+                    // 'q' | '\x1b' => quit = true,
+                    // 'w' => _ = save_table(&table, "table.json"),
                     'j' => table.down(motion_num, 1),
                     'k' => table.up(motion_num as i32, 1),
                     'J' => table.down(motion_num, 10),
@@ -673,7 +703,6 @@ fn main() {
                         preserve_motion = true;
                     }
                     'd' => table.del_curr_elem(),
-                    'w' => _ = save_table(&table, "table.json"),
                     '\n' => table.view_curr_elem(),
                     '=' => table.auto_size_cols(),
                     '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0' => {
@@ -854,13 +883,41 @@ fn main() {
                                             "Usage Error: Extra argument(s) to '(q|quit)'".to_string();
                                     }
                                 },
+                                Some("x") => match tokens.next() {
+                                    None => {
+                                        message_str = format!("'{}' written", table.path);
+                                        save_table(&table, &table.path);
+                                        quit = true;
+                                    },
+                                    Some(_) => {
+                                        error_message_str =
+                                            "Usage Error: Extra argument(s) to 'x'".to_string();
+                                    }
+                                }
                                 Some("o") | Some("open") => match tokens.next() {
+                                    // TODO throw error if not exist
                                     Some(path) => table = load_table(path),
                                     None => error_message_str = "Usage Error: Insufficient arguments to '(o|open) <filepath>'".to_string(),
                                 },
                                 Some("h") | Some("help") => {
                                     // TODO
                                 },
+                                Some("t") => match command_str.strip_prefix("t") {
+                                    Some(new_title) => table.title = new_title.trim_start().to_string(),
+                                    None => error_message_str = "Usage Error: Insufficient arguments to '(t|title) <new-title>'".to_string(),
+                                },
+                                Some("title") => match command_str.strip_prefix("title") {
+                                    Some(new_title) => table.title = new_title.trim_start().to_string(),
+                                    None => error_message_str = "Usage Error: Insufficient arguments to '(t|title) <new-title>'".to_string(),
+                                },
+                                Some("s") => match command_str.strip_prefix("s") {
+                                    Some(new_subtitle) => table.subtitle = new_subtitle.trim_start().to_string(),
+                                    None => error_message_str = "Usage Error: Insufficient arguments to '(s|subtitle) <new-subtitle>'".to_string(),
+                                },
+                                Some("subtitle") => match command_str.strip_prefix("subtitle") {
+                                    Some(new_subtitle) => table.subtitle = new_subtitle.trim_start().to_string(),
+                                    None => error_message_str = "Usage Error: Insufficient arguments to '(s|subtitle) <new-subtitle>'".to_string(),
+                                }
                                 Some(unknown_command) => {
                                     error_message_str = format!("Error: Unknown command '{}'", unknown_command)
                                 }
