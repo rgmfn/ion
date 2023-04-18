@@ -20,3 +20,15 @@ u   undo
 :   command mode? (not sure if needed)
 =   auto resize column(s)?
 ?   commands menu (like helix ?)
+
+
+(q|quit)
+      exit program
+(o|open) <filename>
+      open specified table
+(h|help)
+      gives helpful info about the program
+(t|title) <new-title>
+      changes the table's title to new-title
+(s|subtitle) <new-subtitle>
+      changes the table's subtitle to new-subtitle

@@ -4,19 +4,23 @@
   "columns": [
     {
       "name": "Course",
-      "width": 8
+      "width": 12,
+      "column_type": 0
     },
     {
       "name": "Name",
-      "width": 11
+      "width": 11,
+      "column_type": "string"
     },
     {
       "name": "Status",
-      "width": 11
+      "width": 11,
+      "column_type": "string"
     },
     {
       "name": "Date",
-      "width": 8
+      "width": 8,
+      "column_type": "string"
     }
   ],
   "data": [
@@ -45,8 +49,9 @@
       "01/10/01"
     ]
   ],
-  "curr_row": 3,
-  "curr_col": 3,
+  "curr_row": 2,
+  "curr_col": 0,
   "num_mode": "Absolute",
-  "table_focus": "Table"
+  "table_focus": "Table",
+  "path": "table.json"
 }

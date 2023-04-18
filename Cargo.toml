@@ -10,3 +10,5 @@ ncurses = "5.101.0"
 serde_json = "1.0.94"
 serde = {version = "1.0.144", features = ["derive"]}
 regex = "1.7.3"
+strum = "0.24"
+strum_macros = "0.24"

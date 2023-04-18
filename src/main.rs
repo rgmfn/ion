@@ -1,8 +1,9 @@
 use ncurses::*;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use std::fs::File;
 use std::io::Write;
+use std::str::FromStr;
 use std::{cmp::max, fs};
 
 const WHITE_PAIR: i16 = 0;
@@ -27,14 +28,14 @@ enum InputMode {
     Cmd,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 struct Date {
     day: i32,
     month: i32,
     year: i32,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, strum_macros::Display, Clone, strum_macros::EnumString)]
 #[serde(rename_all = "lowercase")]
 #[serde(untagged)]
 enum ColumnType {
@@ -43,6 +44,16 @@ enum ColumnType {
     Boolean(bool),
     // Multiselect(?),
     Number(i32),
+}
+
+fn column_symbols(col_type: &ColumnType) -> &str {
+    match col_type {
+        ColumnType::Date(_) => "@",
+        ColumnType::String(_) => "_",
+        ColumnType::Boolean(_) => "?",
+        ColumnType::Number(_) => "#",
+        // _ => "!",
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -60,7 +71,7 @@ fn label(text: &str, y: i32, x: i32, pair: i16) {
     attroff(COLOR_PAIR(pair));
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, strum_macros::Display)]
 enum TableFocus {
     Table,
     Element,
@@ -134,8 +145,9 @@ impl Table {
                 addstr("| ");
                 attron(COLOR_PAIR(pair));
                 addstr(&format!("{}", col.name));
+                addstr(&format!("{}", column_symbols(&col.column_type)));
                 attroff(COLOR_PAIR(pair));
-                addstr(&n_of_c(col.width as usize - col.name.len(), ' '));
+                addstr(&n_of_c(col.width as usize - col.name.len() - 1, ' '));
                 addstr(" ");
             }
             addstr("|");
@@ -263,12 +275,12 @@ impl Table {
             InputMode::Text if motion_num == 2 => _ = addstr(&format!(" -> {}", input_str)),
             _ => {}
         };
-        label("[3|type]:  String", start_y as i32 + 2, 8, WHITE_PAIR);
-        // addstr(&format!("{}", col.name));
-        // match input_mode {
-        //     InputMode::Text if motion_num == 2 => _ = addstr(&format!(" -> {}", input_str)),
-        //     _ => {}
-        // };
+        label("[3|type]: ", start_y as i32 + 2, 8, WHITE_PAIR);
+        addstr(&format!("{}", col.column_type.to_string()));
+        match input_mode {
+            InputMode::Text if motion_num == 3 => _ = addstr(&format!(" -> {}", input_str)),
+            _ => {}
+        };
         // TODO default value
     }
 
@@ -316,18 +328,18 @@ impl Table {
     }
 
     fn up(&mut self, by: i32, def: i32) {
-        let n: i32 = if by == 0 { def } else { by };
-        if self.curr_row as i32 - n >= 0 {
-            self.curr_row -= n as usize;
+        let amount: i32 = if by == 0 { def } else { by };
+        if self.curr_row as i32 - amount >= 0 {
+            self.curr_row -= amount as usize;
         } else {
             self.curr_row = 0;
         }
     }
 
     fn down(&mut self, by: usize, def: usize) {
-        let n: usize = if by == 0 { def } else { by };
-        if self.curr_row + n < self.data.len() {
-            self.curr_row += n;
+        let amount: usize = if by == 0 { def } else { by };
+        if self.curr_row + amount < self.data.len() {
+            self.curr_row += amount;
         } else {
             self.curr_row = self.data.len() - 1;
         }
@@ -346,24 +358,30 @@ impl Table {
         }
     }
 
-    fn prev_col(&mut self) {
-        if self.curr_col > 0 {
-            self.curr_col -= 1;
-        } else {
+    fn prev_col(&mut self, by: i32) {
+        let amount: i32 = if by == 0 { 1 } else { by };
+        if self.curr_col as i32 - amount >= 0 {
+            self.curr_col -= amount as usize;
+        } else if amount == 1 {
             self.curr_col = self.columns.len() - 1;
-        }
-    }
-
-    fn next_col(&mut self) {
-        if self.curr_col + 1 < self.columns.len() {
-            self.curr_col += 1;
         } else {
             self.curr_col = 0;
         }
     }
 
+    fn next_col(&mut self, by: usize) {
+        let amount: usize = if by == 0 { 1 } else { by };
+        if self.curr_col + amount < self.columns.len() {
+            self.curr_col += amount;
+        } else if amount == 1 {
+            self.curr_col = 0;
+        } else {
+            self.curr_col = self.columns.len() - 1;
+        }
+    }
+
     fn grow_curr_col(&mut self, motion_num: usize) {
-        let min_width = self.columns[self.curr_col].name.len();
+        let min_width = self.columns[self.curr_col].name.len() + 1;
 
         let amount: i32 = if motion_num > 0 { motion_num as i32 } else { 1 };
         self.columns[self.curr_col].width += amount;
@@ -380,12 +398,12 @@ impl Table {
         {
             self.columns[self.curr_col].width -= amount;
         } else {
-            self.columns[self.curr_col].width = amount;
+            self.columns[self.curr_col].width = self.columns[self.curr_col].name.len() as i32 + 1;
         }
     }
 
     fn auto_size_col(&mut self, col: usize) {
-        let mut min_size = self.columns[col].name.len();
+        let mut min_size = self.columns[col].name.len() + 1;
         for row in self.data.iter() {
             min_size = max(min_size, row[col].len());
         }
@@ -663,13 +681,20 @@ fn main() {
                 addstr(" ");
                 attroff(COLOR_PAIR(INV_WHITE_PAIR));
             }
-            _ => {}
-        }
-
-        if !error_message_str.is_empty() {
-            label(&format!("{}", error_message_str), screen_h - 1, 0, RED_PAIR);
-        } else if !message_str.is_empty() {
-            label(&format!("{}", message_str), screen_h - 1, 0, WHITE_PAIR);
+            _ => {
+                if !error_message_str.is_empty() {
+                    label(&format!("{}", error_message_str), screen_h - 1, 0, RED_PAIR);
+                } else if !message_str.is_empty() {
+                    label(&format!("{}", message_str), screen_h - 1, 0, WHITE_PAIR);
+                } else {
+                    label(
+                        &format!("--{}--", table.table_focus),
+                        screen_h - 1,
+                        0,
+                        WHITE_PAIR,
+                    );
+                }
+            }
         }
 
         error_message_str = "".to_string();
@@ -716,6 +741,7 @@ fn main() {
                     _ => {}
                 },
                 TableFocus::Element => match key as u8 as char {
+                    ':' => input_mode = InputMode::Cmd,
                     'q' | '\x1b' => table.to_table_mode(),
                     'j' => table.down(motion_num, 1),
                     'k' => table.up(motion_num as i32, 1),
@@ -736,9 +762,10 @@ fn main() {
                     _ => {}
                 },
                 TableFocus::Column => match key as u8 as char {
+                    ':' => input_mode = InputMode::Cmd,
                     'q' | '\x1b' => table.to_table_mode(),
-                    'h' => table.prev_col(),
-                    'l' => table.next_col(),
+                    'h' => table.prev_col(motion_num as i32),
+                    'l' => table.next_col(motion_num),
                     'H' => table.move_curr_col_left(),
                     'L' => table.move_curr_col_right(),
                     'c' => table.to_table_mode(),
@@ -803,16 +830,29 @@ fn main() {
                             input_str = "".to_string();
                             input_mode = InputMode::Normal;
                         }
-                        2 => {
-                            // TODO input validation
-                            table.columns[table.curr_col].width = max(
-                                input_str.parse::<i32>().unwrap(),
-                                table.columns[table.curr_col].name.len() as i32,
-                            );
-                            input_str = "".to_string();
-                            input_mode = InputMode::Normal;
-                        }
-                        // 3 => {}
+                        2 => match input_str.parse::<i32>() {
+                            Ok(as_i32) => {
+                                table.columns[table.curr_col].width =
+                                    max(as_i32, table.columns[table.curr_col].name.len() as i32);
+                                input_str = "".to_string();
+                                input_mode = InputMode::Normal;
+                            }
+                            Err(_e) => {
+                                preserve_motion = true;
+                            }
+                        },
+                        3 => match ColumnType::from_str(&input_str) {
+                            Ok(new_type) => {
+                                table.columns[table.curr_col].column_type = new_type;
+                                // TODO turn elements in data into that type if possible
+                                input_str = "".to_string();
+                                input_mode = InputMode::Normal;
+                            }
+                            Err(_) => {
+                                preserve_motion = true;
+                                // TODO turn this into a multiselect???
+                            }
+                        },
                         _ => {}
                     },
                     TableFocus::NewColumn => {
@@ -838,10 +878,10 @@ fn main() {
                                 table.to_table_mode();
                                 input_mode = InputMode::Normal;
                             }
-                            // 3 => {
-                            //     motion_num += 1;
-                            // }
-                            _ => todo!(),
+                            3 => {
+                                todo!()
+                            }
+                            _ => {}
                         };
                     }
                     _ => {}
@@ -860,82 +900,80 @@ fn main() {
                 }
             },
             InputMode::Cmd => {
-                match table.table_focus {
-                    TableFocus::Table => match key as u8 as char {
-                        '\n' => {
-                            let mut tokens = command_str.split(' ').fuse();
-                            match tokens.next() {
-                                Some("w") | Some("write") => match tokens.next() {
-                                    Some(path) => {
-                                        message_str = format!("'{}' written", path);
-                                        table.path = path.to_string();
-                                        save_table(&table, path);
-                                    }
-                                    None => {
-                                        message_str = format!("'{}' written", table.path);
-                                        save_table(&table, &table.path);
-                                    }
-                                },
-                                Some("q") | Some("quit") => match tokens.next() {
-                                    None => quit = true,
-                                    Some(_) => {
-                                        error_message_str =
-                                            "Usage Error: Extra argument(s) to '(q|quit)'".to_string();
-                                    }
-                                },
-                                Some("x") => match tokens.next() {
-                                    None => {
-                                        message_str = format!("'{}' written", table.path);
-                                        save_table(&table, &table.path);
-                                        quit = true;
-                                    },
-                                    Some(_) => {
-                                        error_message_str =
-                                            "Usage Error: Extra argument(s) to 'x'".to_string();
-                                    }
+                // doesn't matter what you're looking at, commands are global
+                match key as u8 as char {
+                    '\n' => {
+                        let mut tokens = command_str.split(' ').fuse();
+                        match tokens.next() {
+                            Some("w") | Some("write") => match tokens.next() {
+                                Some(path) => {
+                                    message_str = format!("'{}' written", path);
+                                    table.path = path.to_string();
+                                    save_table(&table, path);
                                 }
-                                Some("o") | Some("open") => match tokens.next() {
-                                    // TODO throw error if not exist
-                                    Some(path) => table = load_table(path),
-                                    None => error_message_str = "Usage Error: Insufficient arguments to '(o|open) <filepath>'".to_string(),
-                                },
-                                Some("h") | Some("help") => {
-                                    // TODO
-                                },
-                                Some("t") => match command_str.strip_prefix("t") {
-                                    Some(new_title) => table.title = new_title.trim_start().to_string(),
-                                    None => error_message_str = "Usage Error: Insufficient arguments to '(t|title) <new-title>'".to_string(),
-                                },
-                                Some("title") => match command_str.strip_prefix("title") {
-                                    Some(new_title) => table.title = new_title.trim_start().to_string(),
-                                    None => error_message_str = "Usage Error: Insufficient arguments to '(t|title) <new-title>'".to_string(),
-                                },
-                                Some("s") => match command_str.strip_prefix("s") {
-                                    Some(new_subtitle) => table.subtitle = new_subtitle.trim_start().to_string(),
-                                    None => error_message_str = "Usage Error: Insufficient arguments to '(s|subtitle) <new-subtitle>'".to_string(),
-                                },
-                                Some("subtitle") => match command_str.strip_prefix("subtitle") {
-                                    Some(new_subtitle) => table.subtitle = new_subtitle.trim_start().to_string(),
-                                    None => error_message_str = "Usage Error: Insufficient arguments to '(s|subtitle) <new-subtitle>'".to_string(),
+                                None => {
+                                    message_str = format!("'{}' written", table.path);
+                                    save_table(&table, &table.path);
                                 }
-                                Some(unknown_command) => {
-                                    error_message_str = format!("Error: Unknown command '{}'", unknown_command)
+                            },
+                            Some("q") | Some("quit") => match tokens.next() {
+                                None => quit = true,
+                                Some(_) => {
+                                    error_message_str =
+                                        "Usage Error: Extra argument(s) to '(q|quit)'".to_string();
                                 }
-                                None => {}
+                            },
+                            Some("x") => match tokens.next() {
+                                None => {
+                                    message_str = format!("'{}' written", table.path);
+                                    save_table(&table, &table.path);
+                                    quit = true;
+                                },
+                                Some(_) => {
+                                    error_message_str =
+                                        "Usage Error: Extra argument(s) to 'x'".to_string();
+                                }
                             }
+                            Some("o") | Some("open") => match tokens.next() {
+                                // TODO throw error if not exist
+                                Some(path) => table = load_table(path),
+                                None => error_message_str = "Usage Error: Insufficient arguments to '(o|open) <filepath>'".to_string(),
+                            },
+                            Some("h") | Some("help") => {
+                                todo!()
+                            },
+                            Some("t") => match command_str.strip_prefix("t") {
+                                Some(new_title) => table.title = new_title.trim_start().to_string(),
+                                None => error_message_str = "Usage Error: Insufficient arguments to '(t|title) <new-title>'".to_string(),
+                            },
+                            Some("title") => match command_str.strip_prefix("title") {
+                                Some(new_title) => table.title = new_title.trim_start().to_string(),
+                                None => error_message_str = "Usage Error: Insufficient arguments to '(t|title) <new-title>'".to_string(),
+                            },
+                            Some("s") => match command_str.strip_prefix("s") {
+                                Some(new_subtitle) => table.subtitle = new_subtitle.trim_start().to_string(),
+                                None => error_message_str = "Usage Error: Insufficient arguments to '(s|subtitle) <new-subtitle>'".to_string(),
+                            },
+                            Some("subtitle") => match command_str.strip_prefix("subtitle") {
+                                Some(new_subtitle) => table.subtitle = new_subtitle.trim_start().to_string(),
+                                None => error_message_str = "Usage Error: Insufficient arguments to '(s|subtitle) <new-subtitle>'".to_string(),
+                            }
+                            Some(unknown_command) => {
+                                error_message_str = format!("Error: Unknown command '{}'", unknown_command)
+                            }
+                            None => {}
+                        }
 
-                            command_str = "".to_string();
-                            input_mode = InputMode::Normal;
-                        }
-                        '\t' => {}
-                        '\x1b' => {
-                            command_str = "".to_string();
-                            input_mode = InputMode::Normal;
-                        }
-                        '\x7f' => _ = command_str.pop(),
-                        _ => command_str.push_str(&(key as u8 as char).to_string()),
-                    },
-                    _ => {}
+                        command_str = "".to_string();
+                        input_mode = InputMode::Normal;
+                    }
+                    '\t' => {}
+                    '\x1b' => {
+                        command_str = "".to_string();
+                        input_mode = InputMode::Normal;
+                    }
+                    '\x7f' => _ = command_str.pop(),
+                    _ => command_str.push_str(&(key as u8 as char).to_string()),
                 }
             }
         }
