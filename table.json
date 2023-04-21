@@ -19,7 +19,7 @@
     },
     {
       "name": "Date",
-      "width": 10,
+      "width": 12,
       "column_type": "date"
     },
     {
@@ -47,7 +47,7 @@
       "CSE 115A",
       "TSR 4",
       "f",
-      "05/06/2007",
+      "05/06/20007",
       "1"
     ],
     [
@@ -63,11 +63,18 @@
       "Not Started",
       "04/24/2023",
       ""
+    ],
+    [
+      "CSE 132",
+      "Final",
+      "t",
+      "Invalid Date",
+      "0"
     ]
   ],
-  "curr_row": 0,
-  "curr_col": 4,
-  "num_mode": "Absolute",
+  "curr_row": 2,
+  "curr_col": 3,
+  "num_mode": "Relative",
   "table_focus": "Table",
   "path": "table.json"
 }

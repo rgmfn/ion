@@ -2,6 +2,7 @@ use chrono::prelude::*;
 use chrono::NaiveDate;
 use iota::iota;
 use ncurses::*;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use std::fs::File;
@@ -71,18 +72,31 @@ fn str_as_col_type<'a>(str: &'a str, col_type: &'a ColumnType) -> (&'a str, Colo
                 }
             }
         },
+        ColumnType::Date => {
+            let date_regex: regex::Regex = Regex::new(r"^\d{2}/\d{2}/\d{4}$").unwrap();
+            if date_regex.is_match(str) {
+                str
+            } else {
+                "?"
+            }
+        }
         _ => str,
     };
     let color_to_display: i16 = match *col_type {
         ColumnType::Date => {
             let today: NaiveDate = Local::now().naive_local().date();
-            let date = NaiveDate::parse_from_str(str, "%m/%d/%Y").unwrap();
-            if date < today {
-                RED_PAIR
-            } else if date == today {
-                WHITE_PAIR
-            } else {
-                GREEN_PAIR
+            match NaiveDate::parse_from_str(str, "%m/%d/%Y") {
+                Ok(_) if str.len() != 10 => BLUE_PAIR,
+                Ok(date) => {
+                    if date < today {
+                        RED_PAIR
+                    } else if date == today {
+                        WHITE_PAIR
+                    } else {
+                        GREEN_PAIR
+                    }
+                }
+                Err(_) => BLUE_PAIR,
             }
         }
         ColumnType::Number => match str.parse::<i32>() {
@@ -869,8 +883,34 @@ fn main() {
             InputMode::Text => match key as u8 as char {
                 '\n' => match table.table_focus {
                     TableFocus::Element => {
-                        // TODO? change the input for boolean so it just switches from t -> f | f -> t
-                        table.data[table.curr_row].push(input_str);
+                        // TODO check what type the thing we are adding is (based on motion_num), change input
+                        //      pad dates (or reject if year isn't long enough)
+                        let new_data: String = match table.columns[motion_num - 1].column_type {
+                            ColumnType::Date => {
+                                let date_regex: regex::Regex =
+                                    Regex::new(r"^(\d{1,2})/(\d{1,2})/(\d{4})$").unwrap();
+                                match date_regex.captures(&input_str) {
+                                    Some(caps) => {
+                                        format!(
+                                            "{:0>2}/{:0>2}/{}",
+                                            caps.get(1).unwrap().as_str(),
+                                            caps.get(2).unwrap().as_str(),
+                                            caps.get(3).unwrap().as_str()
+                                        )
+                                    }
+                                    None => input_str.clone(),
+                                }
+                            }
+                            ColumnType::Boolean if input_str.is_empty() => {
+                                if table.data[table.curr_row][motion_num - 1] == "t" {
+                                    "f".to_string()
+                                } else {
+                                    "t".to_string()
+                                }
+                            }
+                            _ => input_str,
+                        };
+                        table.data[table.curr_row].push(new_data);
                         table.data[table.curr_row].swap_remove(motion_num - 1);
                         input_str = "".to_string();
                         input_mode = InputMode::Normal;
