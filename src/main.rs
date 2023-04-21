@@ -328,12 +328,18 @@ impl Table {
                 4,
                 WHITE_PAIR,
             );
+            // TODO #42 Invalid data values show up as blue in ColumnType::Element view
+            //          grab just color from str_as_col_type
+            let item_color: ColorPair;
+            (_, item_color) = str_as_col_type(item, &self.columns[col_num].column_type);
+            attron(COLOR_PAIR(item_color));
             label(
                 &format!("{}", item),
                 (start_y + col_num * 3 + 1) as i32,
                 6,
                 WHITE_PAIR,
             );
+            attroff(COLOR_PAIR(item_color));
             match input_mode {
                 InputMode::Text => {
                     if motion_num == col_num + 1 {
