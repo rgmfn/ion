@@ -4,7 +4,7 @@
   "columns": [
     {
       "name": "Course",
-      "width": 12,
+      "width": 8,
       "column_type": "multiselect"
     },
     {
@@ -13,7 +13,7 @@
       "column_type": "string"
     },
     {
-      "name": "Started",
+      "name": "Finished",
       "width": 11,
       "column_type": "boolean"
     },
@@ -24,7 +24,7 @@
     },
     {
       "name": "Priority",
-      "width": 10,
+      "width": 11,
       "column_type": "number"
     }
   ],
@@ -56,10 +56,17 @@
       "t",
       "01/10/2001",
       "Hello World"
+    ],
+    [
+      "CSE 143",
+      "Quiz 1",
+      "Not Started",
+      "04/24/2023",
+      ""
     ]
   ],
   "curr_row": 0,
-  "curr_col": 3,
+  "curr_col": 4,
   "num_mode": "Absolute",
   "table_focus": "Table",
   "path": "table.json"

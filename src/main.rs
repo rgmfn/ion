@@ -9,21 +9,23 @@ use std::io::Write;
 use std::str::FromStr;
 use std::{cmp::max, fs};
 
+type ColorPair = i16;
+
 iota! {
-    const WHITE_PAIR: i16 = iota;
-    const INV_WHITE_PAIR: i16 = iota;
-    const RED_PAIR: i16 = iota;
-    const INV_RED_PAIR: i16 = iota;
-    const GREEN_PAIR: i16 = iota;
-    const INV_GREEN_PAIR: i16 = iota;
-    const YELLOW_PAIR: i16 = iota;
-    const INV_YELLOW_PAIR: i16 = iota;
-    const BLUE_PAIR: i16 = iota;
-    const INV_BLUE_PAIR: i16 = iota;
-    const MAGENTA_PAIR: i16 = iota;
-    const INV_MAGENTA_PAIR: i16 = iota;
-    const CYAN_PAIR: i16 = iota;
-    const INV_CYAN_PAIR: i16 = iota;
+    const WHITE_PAIR: ColorPair= iota;
+    const INV_WHITE_PAIR: ColorPair = iota;
+    const RED_PAIR: ColorPair = iota;
+    const INV_RED_PAIR: ColorPair = iota;
+    const GREEN_PAIR: ColorPair = iota;
+    const INV_GREEN_PAIR: ColorPair = iota;
+    const YELLOW_PAIR: ColorPair = iota;
+    const INV_YELLOW_PAIR: ColorPair = iota;
+    const BLUE_PAIR: ColorPair = iota;
+    const INV_BLUE_PAIR: ColorPair = iota;
+    const MAGENTA_PAIR: ColorPair = iota;
+    const INV_MAGENTA_PAIR: ColorPair = iota;
+    const CYAN_PAIR: ColorPair = iota;
+    const INV_CYAN_PAIR: ColorPair = iota;
 }
 
 #[derive(Clone, Copy)]
@@ -48,6 +50,55 @@ enum ColumnType {
     Boolean,
     Multiselect,
     Number,
+}
+
+fn str_as_col_type<'a>(str: &'a str, col_type: &'a ColumnType) -> (&'a str, ColorPair) {
+    let str_to_display: &str = match *col_type {
+        ColumnType::Boolean => {
+            if str == "T" || str == "t" {
+                "[X]"
+            } else {
+                "[ ]"
+            }
+        }
+        ColumnType::Number => match str.parse::<i32>() {
+            Ok(_) => str,
+            Err(_) => {
+                if str.is_empty() {
+                    ""
+                } else {
+                    "?"
+                }
+            }
+        },
+        _ => str,
+    };
+    let color_to_display: i16 = match *col_type {
+        ColumnType::Date => {
+            let today: NaiveDate = Local::now().naive_local().date();
+            let date = NaiveDate::parse_from_str(str, "%m/%d/%Y").unwrap();
+            if date < today {
+                RED_PAIR
+            } else if date == today {
+                WHITE_PAIR
+            } else {
+                GREEN_PAIR
+            }
+        }
+        ColumnType::Number => match str.parse::<i32>() {
+            Ok(_) => WHITE_PAIR,
+            Err(_) => {
+                if str.is_empty() {
+                    WHITE_PAIR
+                } else {
+                    BLUE_PAIR
+                }
+            }
+        },
+        _ => WHITE_PAIR,
+    };
+
+    (str_to_display, color_to_display)
 }
 
 fn column_symbols(col_type: &ColumnType) -> &str {
@@ -92,6 +143,7 @@ struct Table {
     title: String,
     subtitle: String,
     // views: Vec<View>,
+    // sorts: Vec<Sort>,
     columns: Vec<Column>,
     data: Vec<Vec<String>>,
     curr_row: usize,
@@ -198,47 +250,17 @@ impl Table {
                 ));
             }
             for (col_num, item) in row.iter().enumerate() {
-                // TODO if string doesn't match type, show empty string
-                // TODO #26 highlight dates with according colors
-                let to_display = match self.columns[col_num].column_type {
-                    ColumnType::Boolean => {
-                        if item == "T" || item == "t" {
-                            "[X]"
-                        } else {
-                            "[ ]"
-                        }
-                    }
-                    ColumnType::Number => match item.parse::<i32>() {
-                        Ok(_) => item,
-                        Err(_) => "?",
-                    },
-                    _ => item,
-                };
-                let mut color_to_display = match self.columns[col_num].column_type {
-                    ColumnType::Date => {
-                        let today: NaiveDate = Local::now().naive_local().date(); // TODO make this happen in PST time
-                        let date = NaiveDate::parse_from_str(item, "%m/%d/%Y").unwrap();
-                        if date < today {
-                            RED_PAIR
-                        } else if date == today {
-                            WHITE_PAIR
-                        } else {
-                            GREEN_PAIR
-                        }
-                    }
-                    ColumnType::Number => match item.parse::<i32>() {
-                        Ok(_) => WHITE_PAIR,
-                        Err(_) => BLUE_PAIR,
-                    },
-                    _ => WHITE_PAIR,
-                };
+                let str_to_display: &str;
+                let mut color_to_display: i16;
+                (str_to_display, color_to_display) =
+                    str_as_col_type(item, &self.columns[col_num].column_type);
                 if self.curr_row == row_num {
                     color_to_display += 1; // turns from normal to inverse
                 }
                 addstr("| ");
                 attron(COLOR_PAIR(color_to_display));
                 addstr(&fit_to_sizel(
-                    &format!("{}", to_display),
+                    &format!("{}", str_to_display),
                     self.columns[col_num].width as usize,
                     ' ',
                 ));
@@ -282,7 +304,12 @@ impl Table {
         let start_y: usize = 4;
         for (col_num, item) in self.data[self.curr_row].iter().enumerate() {
             label(
-                &format!("[{}|{}]", col_num + 1, self.columns[col_num].name),
+                &format!(
+                    "[{}|{}{}]",
+                    col_num + 1,
+                    self.columns[col_num].name,
+                    column_symbols(&self.columns[col_num].column_type)
+                ),
                 (start_y + col_num * 3) as i32,
                 4,
                 WHITE_PAIR,
@@ -842,6 +869,7 @@ fn main() {
             InputMode::Text => match key as u8 as char {
                 '\n' => match table.table_focus {
                     TableFocus::Element => {
+                        // TODO? change the input for boolean so it just switches from t -> f | f -> t
                         table.data[table.curr_row].push(input_str);
                         table.data[table.curr_row].swap_remove(motion_num - 1);
                         input_str = "".to_string();
@@ -977,6 +1005,7 @@ fn main() {
                             },
                             Some("x") => match tokens.next() {
                                 None => {
+                                    table.to_table_mode();
                                     message_str = format!("'{}' written", table.path);
                                     save_table(&table, &table.path);
                                     quit = true;
@@ -1009,6 +1038,10 @@ fn main() {
                             Some("subtitle") => match command_str.strip_prefix("subtitle") {
                                 Some(new_subtitle) => table.subtitle = new_subtitle.trim_start().to_string(),
                                 None => error_message_str = "Usage Error: Insufficient arguments to '(s|subtitle) <new-subtitle>'".to_string(),
+                            }
+                            Some("whatfile") | Some("wf") => {
+                                // XXX temp until file tree added
+                                message_str = table.path.as_str().to_string();
                             }
                             Some(unknown_command) => {
                                 error_message_str = format!("Error: Unknown command '{}'", unknown_command)

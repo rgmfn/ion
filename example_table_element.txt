@@ -1,20 +1,20 @@
 Spring 2021 Schedule
+
     Spring 2021 Schedule Subtitle
 
-    [1|Course]
-      CSE 112 -> CSE 180
+    [1|Course=]
+      CSE 115A
 
-    [2|Name]
-      Assignment 3
+    [2|Name_]
+      Essay
 
-    [3|Date]
-      5/17/21
+    [3|Finished?]
+      t ([X])
 
-    [4|Status]
-      Started
+    [4|Date@]
+      06/23/2023
 
-    [5|Type]
-      Assignment
-
-    [6|Notes]
-      ----
+    [5|Priority#]
+      6 -> |User Input    |
+           |Choice 1      |
+           |Choice 2      |
