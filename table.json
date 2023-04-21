@@ -19,7 +19,7 @@
     },
     {
       "name": "Date",
-      "width": 12,
+      "width": 10,
       "column_type": "date"
     },
     {

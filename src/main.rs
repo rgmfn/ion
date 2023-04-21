@@ -315,7 +315,8 @@ impl Table {
     }
 
     fn draw_elem(&self, motion_num: usize, input_mode: InputMode, input_str: &str) {
-        let start_y: usize = 4;
+        label(&format!("Row {}", self.curr_row), 4, 4, WHITE_PAIR);
+        let start_y: usize = 6;
         for (col_num, item) in self.data[self.curr_row].iter().enumerate() {
             label(
                 &format!(
@@ -328,8 +329,6 @@ impl Table {
                 4,
                 WHITE_PAIR,
             );
-            // TODO #42 Invalid data values show up as blue in ColumnType::Element view
-            //          grab just color from str_as_col_type
             let item_color: ColorPair;
             (_, item_color) = str_as_col_type(item, &self.columns[col_num].column_type);
             attron(COLOR_PAIR(item_color));
