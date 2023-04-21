@@ -1,3 +1,6 @@
+use chrono::prelude::*;
+use chrono::NaiveDate;
+use iota::iota;
 use ncurses::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
@@ -6,20 +9,22 @@ use std::io::Write;
 use std::str::FromStr;
 use std::{cmp::max, fs};
 
-const WHITE_PAIR: i16 = 0;
-const INV_WHITE_PAIR: i16 = 1;
-const RED_PAIR: i16 = 2;
-const INV_RED_PAIR: i16 = 3;
-const GREEN_PAIR: i16 = 4;
-const INV_GREEN_PAIR: i16 = 5;
-const YELLOW_PAIR: i16 = 6;
-const INV_YELLOW_PAIR: i16 = 7;
-const BLUE_PAIR: i16 = 8;
-const INV_BLUE_PAIR: i16 = 9;
-const MAGENTA_PAIR: i16 = 10;
-const INV_MAGENTA_PAIR: i16 = 11;
-const CYAN_PAIR: i16 = 12;
-const INV_CYAN_PAIR: i16 = 13;
+iota! {
+    const WHITE_PAIR: i16 = iota;
+    const INV_WHITE_PAIR: i16 = iota;
+    const RED_PAIR: i16 = iota;
+    const INV_RED_PAIR: i16 = iota;
+    const GREEN_PAIR: i16 = iota;
+    const INV_GREEN_PAIR: i16 = iota;
+    const YELLOW_PAIR: i16 = iota;
+    const INV_YELLOW_PAIR: i16 = iota;
+    const BLUE_PAIR: i16 = iota;
+    const INV_BLUE_PAIR: i16 = iota;
+    const MAGENTA_PAIR: i16 = iota;
+    const INV_MAGENTA_PAIR: i16 = iota;
+    const CYAN_PAIR: i16 = iota;
+    const INV_CYAN_PAIR: i16 = iota;
+}
 
 #[derive(Clone, Copy)]
 enum InputMode {
@@ -37,21 +42,21 @@ struct Date {
 
 #[derive(Serialize, Deserialize, strum_macros::Display, Clone, strum_macros::EnumString)]
 #[serde(rename_all = "lowercase")]
-#[serde(untagged)]
 enum ColumnType {
-    Date(Date),
-    String(String),
-    Boolean(bool),
-    // Multiselect(?),
-    Number(i32),
+    Date,
+    String,
+    Boolean,
+    Multiselect,
+    Number,
 }
 
 fn column_symbols(col_type: &ColumnType) -> &str {
     match col_type {
-        ColumnType::Date(_) => "@",
-        ColumnType::String(_) => "_",
-        ColumnType::Boolean(_) => "?",
-        ColumnType::Number(_) => "#",
+        ColumnType::Date => "@",
+        ColumnType::String => "_",
+        ColumnType::Boolean => "?",
+        ColumnType::Number => "#",
+        ColumnType::Multiselect => "=",
         // _ => "!",
     }
 }
@@ -168,7 +173,7 @@ impl Table {
         let start_y: i32 = 7;
         let num_col_size: usize = (self.data.len() as f32).log10() as usize + 1;
         for (row_num, row) in self.data.iter().enumerate() {
-            // freak out if row longer than columns
+            // TODO freak out if row longer than columns?
 
             let pair: i16 = if row_num == self.curr_row as usize {
                 INV_WHITE_PAIR
@@ -193,11 +198,53 @@ impl Table {
                 ));
             }
             for (col_num, item) in row.iter().enumerate() {
+                // TODO if string doesn't match type, show empty string
+                // TODO #26 highlight dates with according colors
+                let to_display = match self.columns[col_num].column_type {
+                    ColumnType::Boolean => {
+                        if item == "T" || item == "t" {
+                            "[X]"
+                        } else {
+                            "[ ]"
+                        }
+                    }
+                    ColumnType::Number => match item.parse::<i32>() {
+                        Ok(_) => item,
+                        Err(_) => "?",
+                    },
+                    _ => item,
+                };
+                let mut color_to_display = match self.columns[col_num].column_type {
+                    ColumnType::Date => {
+                        let today: NaiveDate = Local::now().naive_local().date(); // TODO make this happen in PST time
+                        let date = NaiveDate::parse_from_str(item, "%m/%d/%Y").unwrap();
+                        if date < today {
+                            RED_PAIR
+                        } else if date == today {
+                            WHITE_PAIR
+                        } else {
+                            GREEN_PAIR
+                        }
+                    }
+                    ColumnType::Number => match item.parse::<i32>() {
+                        Ok(_) => WHITE_PAIR,
+                        Err(_) => BLUE_PAIR,
+                    },
+                    _ => WHITE_PAIR,
+                };
+                if self.curr_row == row_num {
+                    color_to_display += 1; // turns from normal to inverse
+                }
+                addstr("| ");
+                attron(COLOR_PAIR(color_to_display));
                 addstr(&fit_to_sizel(
-                    &format!("| {} ", item),
-                    self.columns[col_num].width as usize + 3,
+                    &format!("{}", to_display),
+                    self.columns[col_num].width as usize,
                     ' ',
                 ));
+                attroff(COLOR_PAIR(color_to_display));
+                attron(COLOR_PAIR(pair));
+                addstr(" ");
             }
             addstr("|");
             attroff(COLOR_PAIR(pair));
@@ -281,7 +328,7 @@ impl Table {
             InputMode::Text if motion_num == 3 => _ = addstr(&format!(" -> {}", input_str)),
             _ => {}
         };
-        // TODO default value
+        // TODO #14 default value
     }
 
     fn to_new_elem_mode(&mut self) {
@@ -309,8 +356,8 @@ impl Table {
     fn to_new_col_mode(&mut self) {
         let new_col = Column {
             name: "".to_string(),
-            width: 0,
-            column_type: ColumnType::String("".to_string()),
+            width: 1,
+            column_type: ColumnType::String,
         };
         self.columns.push(new_col);
 
@@ -600,12 +647,6 @@ fn save_table(table: &Table, file_str: &str) {
     writeln!(file, "{}", json);
 }
 
-// TODO e to edit values? (instead of enter)
-// TODO undo system (hosted in hidden file? so it persists)
-// TODO messages at the bottom of the screen (& move motion number)
-// TODO allow writing to path or default file
-// TODO move tables into special folder? tables/ or something?
-
 fn main() {
     initscr();
     noecho();
@@ -837,20 +878,19 @@ fn main() {
                                 input_str = "".to_string();
                                 input_mode = InputMode::Normal;
                             }
-                            Err(_e) => {
+                            Err(_) => {
                                 preserve_motion = true;
                             }
                         },
                         3 => match ColumnType::from_str(&input_str) {
+                            // TODO #33 turn into multiselect
                             Ok(new_type) => {
                                 table.columns[table.curr_col].column_type = new_type;
-                                // TODO turn elements in data into that type if possible
                                 input_str = "".to_string();
                                 input_mode = InputMode::Normal;
                             }
                             Err(_) => {
                                 preserve_motion = true;
-                                // TODO turn this into a multiselect???
                             }
                         },
                         _ => {}
@@ -861,7 +901,7 @@ fn main() {
                                 if !input_str.is_empty() {
                                     let input_len: i32 = input_str.len() as i32;
                                     table.columns[table.curr_col].name = input_str;
-                                    table.columns[table.curr_col].width = input_len;
+                                    table.columns[table.curr_col].width = input_len + 1;
                                     input_str = "".to_string();
                                     motion_num += 1;
                                 }
@@ -871,16 +911,28 @@ fn main() {
                                 if !input_str.is_empty() {
                                     table.columns[table.curr_col].width = max(
                                         input_str.parse::<i32>().unwrap(),
-                                        table.columns[table.curr_col].name.len() as i32,
+                                        table.columns[table.curr_col].name.len() as i32 + 1,
                                     );
+                                    input_str = "".to_string();
+                                    motion_num += 1;
+                                } else {
+                                    input_str = "".to_string();
+                                    motion_num += 1;
                                 }
-                                input_str = "".to_string();
-                                table.to_table_mode();
-                                input_mode = InputMode::Normal;
+                                preserve_motion = true;
                             }
-                            3 => {
-                                todo!()
-                            }
+                            3 => match ColumnType::from_str(&input_str) {
+                                // TODO #33 turn into multiselect
+                                Ok(new_type) => {
+                                    table.columns[table.curr_col].column_type = new_type;
+                                    input_str = "".to_string();
+                                    table.to_table_mode();
+                                    input_mode = InputMode::Normal;
+                                }
+                                Err(_) => {
+                                    preserve_motion = true;
+                                }
+                            },
                             _ => {}
                         };
                     }
@@ -935,7 +987,7 @@ fn main() {
                                 }
                             }
                             Some("o") | Some("open") => match tokens.next() {
-                                // TODO throw error if not exist
+                                // TODO #29 throw error if not exist
                                 Some(path) => table = load_table(path),
                                 None => error_message_str = "Usage Error: Insufficient arguments to '(o|open) <filepath>'".to_string(),
                             },

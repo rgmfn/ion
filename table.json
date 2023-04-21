@@ -5,7 +5,7 @@
     {
       "name": "Course",
       "width": 12,
-      "column_type": 0
+      "column_type": "multiselect"
     },
     {
       "name": "Name",
@@ -13,44 +13,53 @@
       "column_type": "string"
     },
     {
-      "name": "Status",
+      "name": "Started",
       "width": 11,
-      "column_type": "string"
+      "column_type": "boolean"
     },
     {
       "name": "Date",
-      "width": 8,
-      "column_type": "string"
+      "width": 10,
+      "column_type": "date"
+    },
+    {
+      "name": "Priority",
+      "width": 10,
+      "column_type": "number"
     }
   ],
   "data": [
     [
       "CSE 115A",
       "Essay",
-      "Not Started",
-      "03/23/23"
+      "t",
+      "06/23/2023",
+      "6"
     ],
     [
       "CSE 180",
       "Final",
-      "Completed",
-      "01/24/97"
+      "f",
+      "04/20/2023",
+      "4"
     ],
     [
       "CSE 115A",
       "TSR 4",
-      "Completed",
-      "05/06/07"
+      "f",
+      "05/06/2007",
+      "1"
     ],
     [
       "CSE 180",
       "Gradiance 1",
-      "Completed",
-      "01/10/01"
+      "t",
+      "01/10/2001",
+      "Hello World"
     ]
   ],
-  "curr_row": 2,
-  "curr_col": 0,
+  "curr_row": 0,
+  "curr_col": 3,
   "num_mode": "Absolute",
   "table_focus": "Table",
   "path": "table.json"

@@ -1,5 +1,7 @@
 @ date
-$ string
+_ string
 ? boolean
 = multiselect
+	note: references a separate table with all options, keyed by string (unique)
+		  that other table has the color of that option
 # number
