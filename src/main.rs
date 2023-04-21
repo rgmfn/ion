@@ -315,7 +315,7 @@ impl Table {
     }
 
     fn draw_elem(&self, motion_num: usize, input_mode: InputMode, input_str: &str) {
-        label(&format!("Row {}", self.curr_row), 4, 4, WHITE_PAIR);
+        label(&format!("Row {}", self.curr_row + 1), 4, 4, WHITE_PAIR);
         let start_y: usize = 6;
         for (col_num, item) in self.data[self.curr_row].iter().enumerate() {
             label(
