@@ -496,11 +496,24 @@ impl Table {
     }
 
     fn auto_size_col(&mut self, col: usize) {
-        let mut min_size = self.columns[col].name.len() + 1;
-        for row in self.data.iter() {
-            min_size = max(min_size, row[col].len());
-        }
-        self.columns[col].width = min_size as i32;
+        let new_size: i32 = match self.columns[col].column_type {
+            ColumnType::Boolean => {
+                const SIZE_OF_BOOL_IN_TABLE: i32 = 3;
+                max(
+                    SIZE_OF_BOOL_IN_TABLE,
+                    self.columns[col].name.len() as i32 + 1,
+                )
+            }
+            _ => {
+                let mut min_size = self.columns[col].name.len() + 1;
+                for row in self.data.iter() {
+                    min_size = max(min_size, row[col].len());
+                }
+
+                min_size as i32
+            }
+        };
+        self.columns[col].width = new_size;
     }
 
     fn auto_size_curr_col(&mut self) {
@@ -940,7 +953,7 @@ fn main() {
                             let new_str_len = input_str.len() as i32;
                             table.columns[table.curr_col].name = input_str;
                             table.columns[table.curr_col].width =
-                                max(table.columns[table.curr_col].width, new_str_len);
+                                max(table.columns[table.curr_col].width, new_str_len + 1);
                             input_str = "".to_string();
                             input_mode = InputMode::Normal;
                         }

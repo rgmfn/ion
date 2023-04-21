@@ -14,7 +14,7 @@
     },
     {
       "name": "Finished",
-      "width": 11,
+      "width": 9,
       "column_type": "boolean"
     },
     {
@@ -73,7 +73,7 @@
     ]
   ],
   "curr_row": 0,
-  "curr_col": 3,
+  "curr_col": 2,
   "num_mode": "Relative",
   "table_focus": "Table",
   "path": "table.json"
