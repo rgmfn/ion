@@ -72,9 +72,9 @@
       "0"
     ]
   ],
-  "curr_row": 0,
+  "curr_row": 1,
   "curr_col": 2,
-  "num_mode": "Relative",
+  "num_mode": "Absolute",
   "table_focus": "Table",
   "path": "table.json"
 }

@@ -685,8 +685,90 @@ enum NumMode {
     Relative,
 }
 
+fn create_default_table_file() {
+    let table: Table = Table {
+        title: "Default Title".to_string(),
+        subtitle: "Default Subtitle".to_string(),
+        columns: vec![
+            Column {
+                name: "String".to_string(),
+                width: 7,
+                column_type: ColumnType::String,
+            },
+            Column {
+                name: "Multiselect".to_string(),
+                width: 13,
+                column_type: ColumnType::Multiselect,
+            },
+            Column {
+                name: "Boolean".to_string(),
+                width: 8,
+                column_type: ColumnType::Boolean,
+            },
+            Column {
+                name: "Date".to_string(),
+                width: 5,
+                column_type: ColumnType::Date,
+            },
+            Column {
+                name: "Number".to_string(),
+                width: 7,
+                column_type: ColumnType::Number,
+            },
+        ],
+        data: vec![
+            vec![
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+            ],
+            vec![
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+            ],
+            vec![
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+            ],
+        ],
+        curr_row: 0,
+        curr_col: 0,
+        num_mode: NumMode::Absolute,
+        table_focus: TableFocus::Table,
+        path: "default.json".to_string(),
+    };
+
+    let mut file = File::create("tables/.default.json").unwrap();
+    let res = serde_json::to_string_pretty(&table);
+    let json = match res {
+        Ok(j) => j,
+        Err(error) => panic!("Problem saving json: {:?}", error),
+    };
+    writeln!(file, "{}", json);
+}
+
+fn table_file_exists(file_str: &str) -> bool {
+    match fs::read_to_string(&format!("tables/{}", file_str)) {
+        Ok(table_str) => match serde_json::from_str::<Table>(&table_str) {
+            Ok(_) => true,
+            Err(_) => false,
+        },
+        Err(_) => false,
+    }
+}
+
 fn load_table(file_str: &str) -> Table {
-    let table_str: String = fs::read_to_string(file_str).expect("No file to read");
+    // TODO #29 Error catch opening files that don't exist
+    let table_str: String =
+        fs::read_to_string(&format!("tables/{}", file_str)).expect("File does not exist");
     let res: Result<Table> = serde_json::from_str(&table_str);
     let table: Table = match res {
         Ok(t) => t,
@@ -697,7 +779,8 @@ fn load_table(file_str: &str) -> Table {
 }
 
 fn save_table(table: &Table, file_str: &str) {
-    let mut file = File::create(file_str).unwrap();
+    // TODO prevent saving to .default.json?
+    let mut file = File::create(&format!("tables/{}", file_str)).unwrap();
     let res = serde_json::to_string_pretty(table);
     let json = match res {
         Ok(j) => j,
@@ -727,7 +810,8 @@ fn main() {
     init_pair(CYAN_PAIR, COLOR_CYAN, COLOR_BLACK);
     init_pair(INV_CYAN_PAIR, COLOR_BLACK, COLOR_CYAN);
 
-    let mut table: Table = load_table("table.json");
+    create_default_table_file();
+    let mut table: Table = load_table(".default.json");
     let mut input_mode: InputMode = InputMode::Normal;
     let mut input_str: String = "".to_string();
     let mut command_str: String = "".to_string();
@@ -1075,7 +1159,13 @@ fn main() {
                             }
                             Some("o") | Some("open") => match tokens.next() {
                                 // TODO #29 throw error if not exist
-                                Some(path) => table = load_table(path),
+                                Some(path) => {
+                                    if table_file_exists(path) {
+                                        table = load_table(path);
+                                    } else {
+                                        error_message_str = format!("There is no file '{}'", path);
+                                    }
+                                },
                                 None => error_message_str = "Usage Error: Insufficient arguments to '(o|open) <filepath>'".to_string(),
                             },
                             Some("h") | Some("help") => {

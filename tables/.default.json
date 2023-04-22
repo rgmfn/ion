@@ -1,0 +1,59 @@
+{
+  "title": "Default Title",
+  "subtitle": "Default Subtitle",
+  "columns": [
+    {
+      "name": "String",
+      "width": 7,
+      "column_type": "string"
+    },
+    {
+      "name": "Multiselect",
+      "width": 13,
+      "column_type": "multiselect"
+    },
+    {
+      "name": "Boolean",
+      "width": 8,
+      "column_type": "boolean"
+    },
+    {
+      "name": "Date",
+      "width": 5,
+      "column_type": "date"
+    },
+    {
+      "name": "Number",
+      "width": 7,
+      "column_type": "number"
+    }
+  ],
+  "data": [
+    [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  "curr_row": 0,
+  "curr_col": 0,
+  "num_mode": "Absolute",
+  "table_focus": "Table",
+  "path": "default.json"
+}
